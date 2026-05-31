@@ -141,10 +141,26 @@ function doGet(e) {
 
 // ── POST — write operations ───────────────────────────────────
 
+/**
+ * If the Script Property AUTH_TOKEN is set, require body.token to match.
+ * Unset = allow everything (back-compat for setups that don't need auth).
+ * The PWA itself never sends a token; it relies on the deployment URL being
+ * a secret. Server-to-server callers (pre-do, future integrations) set
+ * AUTH_TOKEN and pass it in payload.token.
+ */
+function _checkAuth_(token) {
+  const expected = PropertiesService.getScriptProperties().getProperty('AUTH_TOKEN');
+  if (!expected) return true;
+  return token === expected;
+}
+
 function doPost(e) {
   try {
     const body   = JSON.parse(e.postData.contents);
     const action = body.action;
+    if (!_checkAuth_(body.token)) {
+      return cors({ ok: false, error: 'unauthorized' });
+    }
     const sheet  = getSheet();
 
     // ── SYNC: merge incoming todos with sheet (conflict resolution by updatedAt)

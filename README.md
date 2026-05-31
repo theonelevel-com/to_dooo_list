@@ -2,6 +2,8 @@
 
 A generic, reusable shared task management app with a Google Sheets backend and an embedded Claude AI assistant. Fork it, plug in your own Sheet + API key, and self-host.
 
+🌐 Live app: https://levelone-co.github.io/to-do/todo.html
+
 ## Features
 
 - **Shared sections** — customisable section names, synced via Google Sheets
