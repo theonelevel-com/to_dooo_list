@@ -1403,7 +1403,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.1.6'; // Increment when deploying
+const APP_VERSION = '1.1.7'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1573,9 +1573,13 @@ function showSyncError(message) {
 // Convert flat sheet rows → sectioned state object
 // MERGES with local state using updatedAt timestamps (conflict resolution)
 function sheetsToState(todos) {
-  const s = { one: [], two: [], shared: [] };
+  // Build buckets from the live section list so custom/renamed sections
+  // aren't dropped or misfiled into 'one'.
+  const s = {};
+  SECTIONS_ORDER.forEach(k => { s[k] = []; });
+  if (!s.shared) s.shared = [];
   todos.forEach(t => {
-    const sec = t.section && s[t.section] !== undefined ? t.section : 'one';
+    const sec = t.section && s[t.section] !== undefined ? t.section : (SECTIONS_ORDER[0] || 'shared');
     const incoming = {
       id:          t.id,
       text:        t.text,
@@ -1589,17 +1593,27 @@ function sheetsToState(todos) {
       notes:       t.notes || null,
       updatedAt:   t.updatedAt || null
     };
-    // Conflict resolution: local wins if newer
-    const existing = findItemById(sec, incoming.id);
+    // Conflict resolution: search ALL local sections (not just the server's
+    // section) so a newer local move isn't reverted by a stale pull.
+    let existing = null;
+    for (const k of Object.keys(state)) {
+      if (Array.isArray(state[k])) {
+        const hit = state[k].find(i => i.id === incoming.id);
+        if (hit) { existing = hit; break; }
+      }
+    }
     if (!existing) {
       s[sec].push(incoming);
     } else {
       const incomingTime = incoming.updatedAt ? new Date(incoming.updatedAt).getTime() : 0;
       const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-      if (incomingTime > existingTime) {
-        Object.assign(existing, incoming); // Server is newer
+      if (incomingTime >= existingTime) {
+        s[sec].push(incoming);              // server newer-or-equal: take it (incl. its section)
+      } else {
+        // local is newer: keep the local copy in its OWN (local) section
+        const localSec = (existing.section && s[existing.section]) ? existing.section : sec;
+        s[localSec].push({ ...existing });
       }
-      s[sec].push(existing);
     }
   });
   return s;
@@ -1638,8 +1652,13 @@ async function loadFromSheets() {
   if (!getSheetsUrl()) { setSyncStatus('setup'); return false; }
   setSyncStatus('syncing');
   try {
-    console.log('[Sync] Loading from Sheets:', getSheetsUrl());
-    const resp = await fetch(getSheetsUrl(), { method: 'GET' });
+    // Cache-buster: Apps Script GET responses are cacheable, so without this
+    // a pull right after a push (or a poll) can serve a stale pre-edit snapshot
+    // and silently revert local changes (e.g. section moves).
+    const sep = getSheetsUrl().includes('?') ? '&' : '?';
+    const url = getSheetsUrl() + sep + '_=' + Date.now();
+    console.log('[Sync] Loading from Sheets:', url);
+    const resp = await fetch(url, { method: 'GET', cache: 'no-store' });
     if (!resp.ok) {
       console.error('[Sync] HTTP error:', resp.status, resp.statusText);
       throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
@@ -3847,7 +3866,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.1.6</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.1.7</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
