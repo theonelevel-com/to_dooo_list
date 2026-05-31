@@ -1000,6 +1000,142 @@
     width: 100%;
   }
 
+  /* Task Card (unified add/edit pop-up) */
+  .task-card-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 320;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .task-card-overlay.visible { display: flex; }
+  .task-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 22px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  }
+  .task-card h3 { font-size: 1.05rem; margin-bottom: 16px; color: #1a1a2e; }
+  .task-card .field { margin-bottom: 14px; }
+  .task-card .field label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #999;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .task-card input[type="text"],
+  .task-card input[type="date"],
+  .task-card select,
+  .task-card textarea {
+    width: 100%;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    outline: none;
+    color: #333;
+    background: #fff;
+    transition: border-color 0.2s;
+  }
+  .task-card input:focus,
+  .task-card select:focus,
+  .task-card textarea:focus { border-color: #6c63ff; }
+  .task-card textarea { resize: none; min-height: 46px; }
+  .tc-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tc-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eceafe;
+    color: #5a52d5;
+    border-radius: 99px;
+    padding: 3px 8px 3px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .tc-tag-chip.urgent { background: #ffe3e3; color: #d64545; }
+  .tc-tag-chip.note { background: #fff4d6; color: #b8860b; }
+  .tc-tag-chip button {
+    background: none; border: none; cursor: pointer;
+    color: inherit; font-size: 0.9rem; line-height: 1; padding: 0; opacity: 0.7;
+  }
+  .tc-tag-chip button:hover { opacity: 1; }
+  .tc-preset { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  .tc-preset-btn {
+    background: #f4f4f8; border: 1px solid #e0e0e8; color: #666;
+    border-radius: 99px; padding: 3px 10px; font-size: 0.76rem; cursor: pointer;
+  }
+  .tc-preset-btn:hover { background: #eceafe; color: #5a52d5; }
+  .tc-tag-input {
+    flex: 1; min-width: 90px; border: 1.5px solid #e0e0e0 !important;
+    border-radius: 8px; padding: 5px 9px !important; font-size: 0.8rem !important;
+  }
+  .tc-notes-list { max-height: 150px; overflow-y: auto; margin-bottom: 8px; }
+  .tc-note-item {
+    padding: 7px 0; border-bottom: 1px solid #f0f0f0;
+    font-size: 0.85rem; color: #333; display: flex; justify-content: space-between; gap: 8px;
+  }
+  .tc-note-item:last-child { border-bottom: none; }
+  .tc-note-item .tc-note-date { font-size: 0.68rem; color: #aaa; margin-bottom: 2px; }
+  .tc-note-item button {
+    background: none; border: none; cursor: pointer; color: #c0c0c0;
+    font-size: 0.85rem; flex-shrink: 0;
+  }
+  .tc-note-item button:hover { color: #d64545; }
+  .tc-note-add { display: flex; gap: 8px; align-items: flex-end; }
+  .tc-note-add textarea { flex: 1; }
+  .tc-note-add button {
+    background: #6c63ff; color: #fff; border: none; border-radius: 10px;
+    padding: 9px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .task-card-footer {
+    display: flex; gap: 8px; align-items: center; margin-top: 18px;
+  }
+  .task-card-footer .tc-delete {
+    background: none; border: 1.5px solid #f0d0d0; color: #d64545;
+    border-radius: 10px; padding: 9px 14px; font-size: 0.85rem; cursor: pointer; margin-right: auto;
+  }
+  .task-card-footer .tc-delete:hover { background: #ffe3e3; }
+  .task-card-footer .tc-claude {
+    background: #f4f4f8; border: 1px solid #e0e0e8; color: #5a52d5;
+    border-radius: 10px; padding: 9px 12px; font-size: 0.85rem; cursor: pointer;
+  }
+  .task-card-footer .tc-claude:hover { background: #eceafe; }
+  .task-card-footer .tc-cancel {
+    background: #f0f0f0; border: none; color: #666;
+    border-radius: 10px; padding: 9px 16px; font-size: 0.85rem; cursor: pointer;
+  }
+  .task-card-footer .tc-save {
+    background: #6c63ff; color: #fff; border: none;
+    border-radius: 10px; padding: 9px 18px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+  .task-card-footer .tc-save:hover { background: #5a52d5; }
+  /* Make read-mode rows feel clickable */
+  .todo-item .todo-text { cursor: pointer; }
+
+  body.dark .task-card-overlay { background: rgba(0,0,0,0.55); }
+  body.dark .task-card { background: #1e1e2e; }
+  body.dark .task-card h3 { color: #f0f0f5; }
+  body.dark .task-card .field label { color: #8a8a9a; }
+  body.dark .task-card input,
+  body.dark .task-card select,
+  body.dark .task-card textarea { background: #252535; color: #e0e0e8; border-color: #3a3a4a; }
+  body.dark .tc-preset-btn { background: #2a2a3a; border-color: #3a3a4a; color: #b0b0c0; }
+  body.dark .tc-note-item { color: #d0d0d8; border-color: #2a2a3a; }
+  body.dark .task-card-footer .tc-cancel { background: #2a2a3a; color: #b0b0c0; }
+  body.dark .task-card-footer .tc-claude { background: #2a2a3a; border-color: #3a3a4a; }
+
   /* Dark mode toggle */
   .dark-toggle {
     background: none;
@@ -1298,6 +1434,44 @@
   </div>
 </div>
 
+<!-- Task Card (unified add / edit) -->
+<div class="task-card-overlay" id="taskCardOverlay">
+  <div class="task-card">
+    <h3 id="tcTitle">Edit Task</h3>
+    <div class="field">
+      <label>Task</label>
+      <input type="text" id="tcText" placeholder="What needs doing?" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Section</label>
+      <select id="tcSection"></select>
+    </div>
+    <div class="field">
+      <label>Due date</label>
+      <input type="date" id="tcDue">
+    </div>
+    <div class="field">
+      <label>Tags</label>
+      <div class="tc-tags" id="tcTags"></div>
+      <div class="tc-preset" id="tcPreset"></div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <div class="tc-notes-list" id="tcNotesList"></div>
+      <div class="tc-note-add">
+        <textarea id="tcNoteInput" placeholder="Add a note..." rows="1"></textarea>
+        <button onclick="tcAddNote()">Add</button>
+      </div>
+    </div>
+    <div class="task-card-footer">
+      <button class="tc-delete" id="tcDelete" onclick="tcDelete()">Delete</button>
+      <button class="tc-claude" id="tcClaude" onclick="tcAskClaude()" title="Ask Claude to action this">⚡ Claude</button>
+      <button class="tc-cancel" onclick="closeTaskCard()">Cancel</button>
+      <button class="tc-save" id="tcSave" onclick="saveTaskCard()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Action Modal -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -1403,7 +1577,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.1.7'; // Increment when deploying
+const APP_VERSION = '1.1.8'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1895,21 +2069,9 @@ function renderSections() {
     addBtn.className = 'add-btn';
     addBtn.title = 'Add item';
     addBtn.textContent = '\uFF0B';
-    addBtn.addEventListener('click', () => toggleAdd(secKey));
+    addBtn.addEventListener('click', () => openTaskCard('create', secKey));
     header.appendChild(addBtn);
     secDiv.appendChild(header);
-
-    // Add row
-    const addRow = document.createElement('div');
-    addRow.className = 'add-row';
-    addRow.id = 'add-' + secKey;
-    addRow.innerHTML = `
-      <input type="text" placeholder="New item..." id="input-${secKey}" onkeydown="handleKey(event,'${secKey}')">
-      <div class="due-date-wrap"><label>Due:</label><input type="date" id="due-${secKey}"></div>
-      <button onclick="addItem('${secKey}')">Add</button>
-      <button class="cancel-btn" onclick="toggleAdd('${secKey}')">✕</button>
-    `;
-    secDiv.appendChild(addRow);
 
     // Items list
     const list = document.createElement('div');
@@ -1950,174 +2112,48 @@ function makeItemEl(section, item) {
   cb.checked = item.done;
   cb.addEventListener('change', () => onCheck(section, item.id, cb));
 
-  // Label (read mode)
+  // Label (read mode) — click opens the edit card
   const label = document.createElement('div');
   label.className = 'todo-text';
   label.textContent = item.text;
-
-  // Inline edit wrapper (edit mode)
-  const editWrap = document.createElement('div');
-  editWrap.className = 'inline-edit-wrap';
-
-  const editInput = document.createElement('input');
-  editInput.className = 'inline-edit-input';
-  editInput.type = 'text';
-  editInput.value = item.text;
-
-  const saveBtn = document.createElement('button');
-  saveBtn.className = 'inline-save-btn';
-  saveBtn.textContent = '✓';
-  saveBtn.title = 'Save';
-
-  const cancelEditBtn = document.createElement('button');
-  cancelEditBtn.className = 'inline-cancel-btn';
-  cancelEditBtn.textContent = '✕';
-  cancelEditBtn.title = 'Cancel';
-
-  const editDueInput = document.createElement('input');
-  editDueInput.type = 'date';
-  editDueInput.className = 'inline-edit-input';
-  editDueInput.style.cssText = 'flex:0 0 auto; width:130px; font-size:0.8rem; padding:4px 6px;';
-  editDueInput.title = 'Due date';
-  if (item.dueDate) {
-    const d = new Date(item.dueDate);
-    editDueInput.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
-
-  editWrap.appendChild(editInput);
-  editWrap.appendChild(editDueInput);
-  editWrap.appendChild(saveBtn);
-  editWrap.appendChild(cancelEditBtn);
-
-  const commitEdit = () => {
-    const val = editInput.value.trim();
-    if (val && val !== item.text) {
-      item.text = val;
-      label.textContent = val;
-    }
-    // Update due date
-    if (editDueInput.value) {
-      item.dueDate = new Date(editDueInput.value + 'T00:00:00').toISOString();
-    } else {
-      item.dueDate = null;
-    }
-    item.updatedAt = new Date().toISOString();
-    saveState();
-    row.classList.remove('editing');
-    editInput.value = item.text;
-    render();
-  };
-
-  const startInlineEdit = () => {
-    if (item.done) return;
-    row.classList.add('editing');
-    editInput.value = item.text;
-    if (item.dueDate) {
-      const d = new Date(item.dueDate);
-      editDueInput.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    } else {
-      editDueInput.value = '';
-    }
-    editInput.focus();
-    editInput.select();
-  };
-
-  saveBtn.addEventListener('click', commitEdit);
-  cancelEditBtn.addEventListener('click', () => { row.classList.remove('editing'); editInput.value = item.text; });
-  editInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') commitEdit();
-    if (e.key === 'Escape') { row.classList.remove('editing'); editInput.value = item.text; }
-  });
-
-  // Action buttons (always visible on hover)
-  const actions = document.createElement('div');
-  actions.className = 'item-actions';
-
-  // ⚡ Action sheet button
-  const actBtn = document.createElement('button');
-  actBtn.className = 'icon-btn action-btn';
-  actBtn.title = 'Ask Claude to action this';
-  actBtn.textContent = '⚡';
-  actBtn.addEventListener('click', () => openActionSheet(section, item.id));
-  actions.appendChild(actBtn);
-
-  // ✏️ Edit button
-  const editBtn = document.createElement('button');
-  editBtn.className = 'icon-btn edit-btn';
-  editBtn.title = 'Edit';
-  editBtn.textContent = '✏️';
-  editBtn.addEventListener('click', startInlineEdit);
-  actions.appendChild(editBtn);
-
-  // 🔀 Move button
-  const moveBtn = document.createElement('button');
-  moveBtn.className = 'icon-btn move-btn';
-  moveBtn.title = 'Move to another section';
-  moveBtn.textContent = '🔀';
-  moveBtn.addEventListener('click', (e) => { e.stopPropagation(); showMoveMenu(section, item.id, moveBtn); });
-  actions.appendChild(moveBtn);
-
-  // ✕ Delete
-  const delBtn = document.createElement('button');
-  delBtn.className = 'icon-btn delete-btn';
-  delBtn.title = 'Delete';
-  delBtn.textContent = '✕';
-  delBtn.addEventListener('click', () => deleteItem(section, item.id));
-  actions.appendChild(delBtn);
+  label.title = 'Tap to edit';
+  label.addEventListener('click', () => openTaskCard('edit', section, item.id));
 
   row.appendChild(cb);
   row.appendChild(label);
-  row.appendChild(editWrap);
 
-  // Notes button (before other actions)
-  const notesBtn = document.createElement('button');
-  notesBtn.className = 'notes-btn icon-btn' + (parseNotes(item.notes).length ? ' has-notes' : '');
-  notesBtn.title = 'Notes (right-click item for quick add)';
-  notesBtn.textContent = '\uD83D\uDCDD';
-  notesBtn.addEventListener('click', (e) => { e.stopPropagation(); openNotesDialog(section, item.id); });
-  // Tooltip for existing notes
+  // Notes indicator (read-only) \u2014 opens the edit card
   const existingNotes = parseNotes(item.notes);
   if (existingNotes.length) {
-    const badge = document.createElement('span');
-    badge.className = 'notes-badge';
-    notesBtn.appendChild(badge);
-    const tooltip = document.createElement('div');
-    tooltip.className = 'notes-tooltip';
-    tooltip.innerHTML = existingNotes.map(n =>
-      `<div class="note-entry"><div class="note-date">${formatDateShort(n.date)}</div>${escHtml(n.text)}</div>`
-    ).join('');
-    notesBtn.appendChild(tooltip);
+    const noteFlag = document.createElement('span');
+    noteFlag.className = 'note-flag';
+    noteFlag.textContent = '\uD83D\uDCDD';
+    noteFlag.title = existingNotes.map(n => formatDateShort(n.date) + ': ' + n.text).join('\n');
+    noteFlag.style.cssText = 'cursor:pointer; font-size:0.85rem; margin-left:4px; opacity:0.7;';
+    noteFlag.addEventListener('click', (e) => { e.stopPropagation(); openTaskCard('edit', section, item.id); });
+    row.appendChild(noteFlag);
   }
-  actions.insertBefore(notesBtn, actions.firstChild);
 
-  row.appendChild(actions);
-
-  // Tag picker (replaces static tag display)
-  const tagWrap = document.createElement('div');
-  tagWrap.className = 'tag-picker-wrap';
+  // Tags (read-only display) \u2014 click opens the edit card
   if (item.tags && item.tags.length) {
+    const tagWrap = document.createElement('div');
+    tagWrap.className = 'tag-picker-wrap';
     item.tags.forEach(tag => {
       const tagEl = document.createElement('span');
       tagEl.className = 'tag ' + (tag === 'urgent' ? 'urgent' : tag === 'note' ? 'note' : '');
       tagEl.textContent = tag;
       tagEl.style.cursor = 'pointer';
-      tagEl.title = 'Click to manage tags';
-      tagEl.addEventListener('click', (e) => { e.stopPropagation(); toggleTagPicker(tagWrap, section, item.id); });
+      tagEl.title = 'Tap to edit';
+      tagEl.addEventListener('click', (e) => { e.stopPropagation(); openTaskCard('edit', section, item.id); });
       tagWrap.appendChild(tagEl);
     });
+    row.appendChild(tagWrap);
   }
-  // Always show add button
-  const tagBtn = document.createElement('button');
-  tagBtn.className = 'tag-btn';
-  tagBtn.textContent = '+ tag';
-  tagBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTagPicker(tagWrap, section, item.id); });
-  tagWrap.appendChild(tagBtn);
-  row.insertBefore(tagWrap, actions);
 
-  // Right-click for notes
+  // Right-click also opens the edit card
   row.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    openNotesDialog(section, item.id);
+    openTaskCard('edit', section, item.id);
   });
 
   // Date row
@@ -2578,6 +2614,201 @@ function addItem(section) {
 function findItem(section, id) {
   return state[section].find(i => i.id === id);
 }
+
+// ── Task Card (unified add / edit pop-up) ──────────────────────────────────────
+let taskCardContext = null; // { mode:'create'|'edit', section, id, tags:[], notes:[] }
+
+function openTaskCard(mode, section, id) {
+  let item = null;
+  if (mode === 'edit') {
+    item = findItem(section, id);
+    if (!item) return;
+  }
+  taskCardContext = {
+    mode,
+    section,
+    id: id || null,
+    tags: item && item.tags ? item.tags.slice() : [],
+    notes: item ? parseNotes(item.notes) : []
+  };
+
+  document.getElementById('tcTitle').textContent = mode === 'edit' ? 'Edit Task' : 'New Task';
+  document.getElementById('tcText').value = item ? item.text : '';
+
+  // Section dropdown
+  const sel = document.getElementById('tcSection');
+  sel.innerHTML = '';
+  SECTIONS_ORDER.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = sectionNames[k] || k;
+    if (k === section) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // Due date
+  const due = document.getElementById('tcDue');
+  if (item && item.dueDate) {
+    const d = new Date(item.dueDate);
+    due.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  } else if (mode === 'create') {
+    due.value = todayDateStr();
+  } else {
+    due.value = '';
+  }
+
+  document.getElementById('tcSave').textContent = mode === 'edit' ? 'Save' : 'Add';
+  document.getElementById('tcDelete').style.display = mode === 'edit' ? '' : 'none';
+  document.getElementById('tcClaude').style.display = mode === 'edit' ? '' : 'none';
+  document.getElementById('tcNoteInput').value = '';
+
+  renderTcTags();
+  renderTcNotes();
+
+  document.getElementById('taskCardOverlay').classList.add('visible');
+  setTimeout(() => document.getElementById('tcText').focus(), 100);
+}
+
+function renderTcTags() {
+  if (!taskCardContext) return;
+  const wrap = document.getElementById('tcTags');
+  wrap.innerHTML = '';
+  if (!taskCardContext.tags.length) {
+    const empty = document.createElement('span');
+    empty.style.cssText = 'color:#bbb; font-size:0.8rem;';
+    empty.textContent = 'No tags';
+    wrap.appendChild(empty);
+  }
+  taskCardContext.tags.forEach(tag => {
+    const chip = document.createElement('span');
+    chip.className = 'tc-tag-chip ' + (tag === 'urgent' ? 'urgent' : tag === 'note' ? 'note' : '');
+    chip.appendChild(document.createTextNode(tag));
+    const x = document.createElement('button');
+    x.textContent = '✕';
+    x.title = 'Remove tag';
+    x.addEventListener('click', () => { taskCardContext.tags = taskCardContext.tags.filter(t => t !== tag); renderTcTags(); });
+    chip.appendChild(x);
+    wrap.appendChild(chip);
+  });
+
+  const preset = document.getElementById('tcPreset');
+  preset.innerHTML = '';
+  PRESET_TAGS.filter(t => !taskCardContext.tags.includes(t)).forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'tc-preset-btn';
+    btn.textContent = '+ ' + t;
+    btn.addEventListener('click', () => { taskCardContext.tags.push(t); renderTcTags(); });
+    preset.appendChild(btn);
+  });
+  const custom = document.createElement('input');
+  custom.type = 'text';
+  custom.className = 'tc-tag-input';
+  custom.placeholder = 'Custom tag...';
+  custom.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = custom.value.trim().toLowerCase();
+      if (val && !taskCardContext.tags.includes(val)) { taskCardContext.tags.push(val); renderTcTags(); }
+    }
+  });
+  preset.appendChild(custom);
+}
+
+function renderTcNotes() {
+  if (!taskCardContext) return;
+  const list = document.getElementById('tcNotesList');
+  list.innerHTML = '';
+  if (!taskCardContext.notes.length) {
+    list.innerHTML = '<div style="color:#bbb; font-size:0.82rem; padding:4px 0;">No notes yet</div>';
+    return;
+  }
+  taskCardContext.notes.forEach((n, idx) => {
+    const row = document.createElement('div');
+    row.className = 'tc-note-item';
+    const txt = document.createElement('div');
+    txt.innerHTML = `<div class="tc-note-date">${formatDateShort(n.date)}</div>${escHtml(n.text)}`;
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.title = 'Delete note';
+    del.addEventListener('click', () => { taskCardContext.notes.splice(idx, 1); renderTcNotes(); });
+    row.appendChild(txt);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+function tcAddNote() {
+  if (!taskCardContext) return;
+  const input = document.getElementById('tcNoteInput');
+  const text = input.value.trim();
+  if (!text) return;
+  taskCardContext.notes.push({ text, date: new Date().toISOString() });
+  input.value = '';
+  renderTcNotes();
+}
+
+function closeTaskCard() {
+  document.getElementById('taskCardOverlay').classList.remove('visible');
+  taskCardContext = null;
+}
+
+function saveTaskCard() {
+  if (!taskCardContext) return;
+  const text = document.getElementById('tcText').value.trim();
+  if (!text) { document.getElementById('tcText').focus(); return; }
+  const newSection = document.getElementById('tcSection').value;
+  const dueVal = document.getElementById('tcDue').value;
+  const dueDate = dueVal ? new Date(dueVal + 'T00:00:00').toISOString() : null;
+  const now = new Date().toISOString();
+  const ctx = taskCardContext;
+
+  if (ctx.mode === 'create') {
+    const id = newSection[0] + Date.now();
+    if (!Array.isArray(state[newSection])) state[newSection] = [];
+    state[newSection].push({
+      id, text, section: newSection, done: false,
+      tags: ctx.tags.slice(), action: null,
+      createdAt: now, dueDate, completedAt: null,
+      notes: ctx.notes.length ? stringifyNotes(ctx.notes) : null,
+      updatedAt: now
+    });
+  } else {
+    const item = findItem(ctx.section, ctx.id);
+    if (!item) { closeTaskCard(); return; }
+    item.text = text;
+    item.tags = ctx.tags.slice();
+    item.dueDate = dueDate;
+    item.notes = ctx.notes.length ? stringifyNotes(ctx.notes) : null;
+    item.updatedAt = now;
+    if (newSection !== ctx.section) {
+      item.section = newSection;
+      state[ctx.section] = state[ctx.section].filter(i => i.id !== ctx.id);
+      if (!Array.isArray(state[newSection])) state[newSection] = [];
+      state[newSection].push(item);
+    }
+  }
+  saveState();
+  closeTaskCard();
+  render();
+}
+
+function tcDelete() {
+  if (!taskCardContext || taskCardContext.mode !== 'edit') return;
+  const { section, id } = taskCardContext;
+  closeTaskCard();
+  deleteItem(section, id);
+}
+
+function tcAskClaude() {
+  if (!taskCardContext || taskCardContext.mode !== 'edit') return;
+  const { section, id } = taskCardContext;
+  closeTaskCard();
+  openActionSheet(section, id);
+}
+
+document.getElementById('taskCardOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('taskCardOverlay')) closeTaskCard();
+});
 
 // ── Progress ──────────────────────────────────────────────────────────────────
 
@@ -3866,7 +4097,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.1.7</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.1.8</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
