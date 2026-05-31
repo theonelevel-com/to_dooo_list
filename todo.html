@@ -293,6 +293,24 @@
 
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 
+  /* Highlight when the URL hash points at a specific item — used by pre-do
+     and other integrations that deep-link to a freshly-created task. */
+  @keyframes itemHashFlash {
+    0%   { background: #fff7c2; box-shadow: 0 0 0 3px #ffd54f; }
+    100% { background: transparent; box-shadow: none; }
+  }
+  .item.item-hash-target {
+    animation: itemHashFlash 2.4s ease-out;
+    border-radius: 8px;
+  }
+  body.dark .item.item-hash-target {
+    animation-name: itemHashFlashDark;
+  }
+  @keyframes itemHashFlashDark {
+    0%   { background: #4a4626; box-shadow: 0 0 0 3px #ffb347; }
+    100% { background: transparent; box-shadow: none; }
+  }
+
   .action-sheet {
     background: #fff;
     border-radius: 24px 24px 0 0;
@@ -1102,7 +1120,8 @@
   body.dark #syncStatus { color: #22c55e !important; }
   body.dark #apiKeyStatus { background: rgba(255,255,255,0.08); color: #9a9ab0; }
   body.dark #syncBadge { background: #252535; color: #e0e0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
-  body.dark header button[title="Settings"] { background: #252535 !important; border-color: #3a3a4c !important; color: #c0c0d0 !important; }
+  body.dark header button[title="Settings"],
+  body.dark header button[title="Refresh from Sheets"] { background: #252535 !important; border-color: #3a3a4c !important; color: #c0c0d0 !important; }
 
   /* Footer */
   .footer {
@@ -1204,6 +1223,7 @@
       </div>
       <div style="display:flex; gap:8px; margin-top:2px; align-items:center; justify-content:flex-end;">
         <div id="syncStatus" style="font-size:0.72rem; color:#aaa; cursor:pointer; white-space:nowrap;">◌ Loading…</div>
+        <button onclick="manualRefresh(this)" title="Refresh from Sheets" style="background:#f5f5f5; border:1px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:0.75rem; padding:4px 10px; color:#666; font-weight:600;">↻ Refresh</button>
         <button onclick="showSettings()" title="Settings" style="background:#f5f5f5; border:1px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:0.75rem; padding:4px 10px; color:#666; font-weight:600;">Settings</button>
       </div>
     </div>
@@ -1383,7 +1403,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.1.5'; // Increment when deploying
+const APP_VERSION = '1.1.6'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1396,6 +1416,37 @@ function getSheetsUrl() {
 
 function setSheetsUrl(url) {
   try { localStorage.setItem(SHEETS_URL_STORAGE, url); } catch(e) {}
+}
+
+// ── Auth token (optional) ────────────────────────────────────────────────────
+// Paired with the Apps Script Script Property `AUTH_TOKEN`. When the backend
+// has AUTH_TOKEN set, every POST must include a matching `token` field. Reads
+// (doGet) are unchecked — keeps `?config=sections` lookups public.
+const AUTH_TOKEN_STORAGE = 'todo_auth_token_v1';
+
+function getAuthToken() {
+  try { return localStorage.getItem(AUTH_TOKEN_STORAGE) || ''; } catch(e) { return ''; }
+}
+
+function setAuthToken(token) {
+  try {
+    if (token) localStorage.setItem(AUTH_TOKEN_STORAGE, token);
+    else localStorage.removeItem(AUTH_TOKEN_STORAGE);
+  } catch(e) {}
+}
+
+/**
+ * POST to the Sheets backend. Injects the configured AUTH_TOKEN into the
+ * body if one is set. Returns the fetch Response so callers keep their own
+ * resp.ok / json handling.
+ */
+function postToSheet(body) {
+  const token = getAuthToken();
+  const payload = token ? { ...body, token } : body;
+  return fetch(getSheetsUrl(), {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
 }
 
 function getLastSyncTime() {
@@ -1574,7 +1625,9 @@ function stateToFlat() {
       dueDate:     item.dueDate || '',
       completedAt: item.completedAt || '',
       notes:       item.notes || '',
-      updatedAt:   item.updatedAt || new Date().toISOString(),
+      // Legacy items with no updatedAt must LOSE conflicts (use epoch, not now)
+      // so a stale local copy never overwrites a genuine update from another device.
+      updatedAt:   item.updatedAt || new Date(0).toISOString(),
     }));
   });
   return rows;
@@ -1634,14 +1687,12 @@ async function loadFromSheets() {
 // Push full state to Sheets (debounced)
 async function pushToSheets() {
   if (!getSheetsUrl()) { setSyncStatus('setup'); return; }
+  syncPending = false; // we're about to push the latest local state
   setSyncStatus('syncing');
   try {
     const todos = stateToFlat();
     console.log('[Sync] Pushing to Sheets:', todos.length, 'items');
-    const resp = await fetch(getSheetsUrl(), {
-      method: 'POST',
-      body: JSON.stringify({ action: 'sync', todos }),
-    });
+    const resp = await postToSheet({ action: 'sync', todos });
     if (!resp.ok) {
       console.error('[Sync] HTTP error:', resp.status, resp.statusText);
       throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
@@ -1652,6 +1703,12 @@ async function pushToSheets() {
       setLastSyncTime();
       syncRetryCount = 0;
       setSyncStatus('synced');
+      // Reconcile: pull the server's merged result so this device reflects any
+      // concurrent edits from other devices (and any conflict resolution).
+      // Skipped if another local change was queued during this push (avoid clobbering).
+      if (!syncPending) {
+        await loadFromSheets();
+      }
     } else {
       console.error('[Sync] Server error:', data);
       showSyncError('Failed to sync: ' + (data.error || 'unknown error'));
@@ -1707,10 +1764,7 @@ async function archiveToDoneSheet(items) {
       done: i.done, tag: i.tag || '', createdAt: i.createdAt || '',
       dueDate: i.dueDate || '', completedAt: i.completedAt || '', notes: i.notes || ''
     }));
-    await fetch(getSheetsUrl(), {
-      method: 'POST',
-      body: JSON.stringify({ action: 'archive', items: rows }),
-    });
+    await postToSheet({ action: 'archive', items: rows });
   } catch(e) {
     console.warn('Archive to Done sheet failed:', e.message);
   }
@@ -1733,6 +1787,7 @@ function saveState() {
   saveLocalState();
   if (!getSheetsUrl()) return;
   clearTimeout(syncTimer);
+  syncPending = true;
   setSyncStatus('syncing');
   syncTimer = setTimeout(() => pushToSheets(), 800);
 }
@@ -3224,6 +3279,17 @@ function showSheetsUrlPrompt() {
       " value="${currentUrl}">
     </div>
 
+    <div style="border-top: 1px solid #e0e0e0; padding-top: 12px; padding-bottom: 12px;">
+      <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Auth token (optional)</label>
+      <input id="authTokenInput" type="password" placeholder="leave blank for no auth" autocomplete="off" style="
+        width: 100%; border: 1.5px solid #e0e0e0; border-radius: 8px;
+        padding: 9px 12px; font-size: 0.85rem; outline: none; margin-top: 6px; font-family: monospace;
+      " value="${getAuthToken()}">
+      <div style="font-size: 0.7rem; color: #aaa; margin-top: 4px; line-height: 1.4;">
+        Only needed if the backend's Script Property <code>AUTH_TOKEN</code> is set. Same value as the one set in Apps Script.
+      </div>
+    </div>
+
     <div style="font-size: 0.75rem; color: #aaa; line-height: 1.4;">
       <strong>Sheet ID:</strong> Found in sheet URL between <code>/d/</code> and <code>/edit</code><br>
       <strong>Deployment URL:</strong> From Apps Script > Deploy > New Deployment > Web App
@@ -3255,6 +3321,9 @@ function showSheetsUrlPrompt() {
 
     if (urlToUse) {
       setSheetsUrl(urlToUse);
+      // Save (or clear) the auth token alongside the URL.
+      const tokenInput = document.getElementById('authTokenInput');
+      setAuthToken(tokenInput ? tokenInput.value.trim() : '');
       closeModal();
       resetModal();
       console.log('[Setup] Connecting to:', urlToUse);
@@ -3630,10 +3699,7 @@ async function pushSectionsConfigToSheet() {
   const payload = { names: sectionNames, order: SECTIONS_ORDER };
   try {
     console.log('[Config] Pushing sections config:', payload);
-    const resp = await fetch(getSheetsUrl(), {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveConfig', key: 'sections', value: JSON.stringify(payload) }),
-    });
+    const resp = await postToSheet({ action: 'saveConfig', key: 'sections', value: JSON.stringify(payload) });
     if (!resp.ok) console.warn('[Config] Push HTTP error:', resp.status);
   } catch(e) { console.warn('[Config] Push failed:', e.message); }
 }
@@ -3662,6 +3728,71 @@ loadFromSheets().then(() => {
   render();
 });
 loadSectionNamesFromSheet();
+
+// ── Live refresh: keep devices in sync without a hard restart ──────────────────
+// Apps Script can't push, so we pull on focus + poll on an interval.
+// Skips the pull if a local change is queued, so we never clobber unsaved edits.
+async function refreshFromSheets() {
+  if (!getSheetsUrl()) return;
+  if (syncPending) return;               // a local push is pending — don't overwrite it
+  if (document.hidden) return;           // only when the app is actually visible
+  await loadFromSheets();
+  cleanupCompletedItems();
+  loadSectionNamesFromSheet();
+}
+
+// (#2) Re-sync whenever the tab/PWA regains focus
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshFromSheets();
+});
+window.addEventListener('focus', refreshFromSheets);
+
+// (#4) Poll every 60s while the app is in the foreground
+const SYNC_POLL_MS = 60000;
+setInterval(refreshFromSheets, SYNC_POLL_MS);
+
+// (#5) Manual refresh button — flush any pending local change, then pull
+async function manualRefresh(btn) {
+  if (!getSheetsUrl()) { showSettings(); return; }
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  try {
+    if (syncPending) {
+      clearTimeout(syncTimer);
+      await pushToSheets();   // push local edits first so they aren't lost
+    } else {
+      await loadFromSheets(); // otherwise just pull the latest
+    }
+    cleanupCompletedItems();
+    loadSectionNamesFromSheet();
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+// ── Hash deep-link (e.g. from pre-do: .../todo.html#<task-id>) ─────────────
+// The task may not exist in the DOM yet (Sheets fetch is async); retry for
+// up to ~6s before giving up. Once located: scroll into view and flash the
+// itemHashFlash highlight.
+function scrollToHashTarget(retries) {
+  retries = retries == null ? 12 : retries;
+  const raw = (location.hash || '').replace(/^#/, '');
+  if (!raw) return;
+  const id = raw.startsWith('item-') ? raw : 'item-' + raw;
+  const el = document.getElementById(id);
+  if (!el) {
+    if (retries > 0) setTimeout(() => scrollToHashTarget(retries - 1), 500);
+    return;
+  }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Re-trigger the animation if the user re-navigates to the same hash.
+  el.classList.remove('item-hash-target');
+  void el.offsetWidth; // force reflow
+  el.classList.add('item-hash-target');
+}
+window.addEventListener('hashchange', () => scrollToHashTarget(0));
+// First attempt fires once after initial render; loadFromSheets() above will
+// trigger a second render, and the retry loop covers the gap.
+scrollToHashTarget();
 
 // ── Daily midnight cleanup ────────────────────────────────────────────────────
 // If app stays open overnight, auto-cleanup at midnight
@@ -3716,7 +3847,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.1.5</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.1.6</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
