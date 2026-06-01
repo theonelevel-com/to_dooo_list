@@ -533,6 +533,9 @@
     padding: 28px;
     max-width: 460px;
     width: 100%;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 0 8px 40px rgba(0,0,0,0.15);
   }
 
@@ -580,16 +583,17 @@
   .btn-secondary:hover { background: #e0e0e0; }
 
   /* Chat widget */
-  /* Assistant is a right-side slide-in drawer: full height, half width,
-     collapsed by default. The list on the left keeps its size and stays
-     scrollable underneath. */
+  /* Assistant is a right-side slide-in drawer: full height, always half the
+     viewport width (no width jump while resizing), collapsed by default. The
+     list on the left keeps its size and stays scrollable underneath. */
   .chat-section {
     position: fixed;
     top: 0;
     right: 0;
     height: 100vh;
     height: 100dvh;
-    width: 50%;
+    width: 50vw;
+    box-sizing: border-box;
     background: #fff;
     border-radius: 0;
     margin-bottom: 0;
@@ -602,7 +606,6 @@
     z-index: 400;
   }
   .chat-section.open { transform: translateX(0); }
-  @media (max-width: 760px) { .chat-section { width: 86%; } }
 
   /* Launcher FAB (gradient, matches the assistant avatar) */
   .assistant-fab {
@@ -645,7 +648,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 20px;
+    padding: 14px 16px;
     border-bottom: 1px solid #f0f0f0;
     background: linear-gradient(135deg, #f7f5ff, #f0f9ff);
   }
@@ -664,12 +667,14 @@
 
   .chat-header-info {
     flex: 1;
+    min-width: 0;
   }
 
   .chat-header-title {
     font-size: 0.88rem;
     font-weight: 700;
     color: #1a1a2e;
+    overflow-wrap: anywhere;
   }
 
   .chat-header-sub {
@@ -1675,7 +1680,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.2.0'; // Increment when deploying
+const APP_VERSION = '1.2.1'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -4419,7 +4424,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.0</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.1</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
