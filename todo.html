@@ -473,6 +473,8 @@
 
   .tag.urgent { background: #fff0f5; color: #e91e8c; }
   .tag.note { background: #fff7e6; color: #f59e0b; }
+  .tag.predo-to { background: #e6f0ff; color: #2563eb; }
+  .tag.predo-from { background: #e8f7ee; color: #15803d; }
 
   /* Add item inline */
   .add-row {
@@ -646,11 +648,24 @@
 
   .chat-header {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 16px;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
     border-bottom: 1px solid #f0f0f0;
     background: linear-gradient(135deg, #f7f5ff, #f0f9ff);
+  }
+
+  /* Top line: avatar on the left, Clear / status / close pushed to the right */
+  .chat-header-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chat-header-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .chat-avatar {
@@ -666,7 +681,6 @@
   }
 
   .chat-header-info {
-    flex: 1;
     min-width: 0;
   }
 
@@ -1147,6 +1161,8 @@
   }
   .tc-tag-chip.urgent { background: #ffe3e3; color: #d64545; }
   .tc-tag-chip.note { background: #fff4d6; color: #b8860b; }
+  .tc-tag-chip.predo-to { background: #dceaff; color: #1d4ed8; }
+  .tc-tag-chip.predo-from { background: #d9f2e4; color: #15803d; }
   .tc-tag-chip button {
     background: none; border: none; cursor: pointer;
     color: inherit; font-size: 0.9rem; line-height: 1; padding: 0; opacity: 0.7;
@@ -1274,6 +1290,8 @@
   body.dark .tag { background: #2a2a45; color: #9b93ff; }
   body.dark .tag.urgent { background: #352035; color: #ff7abf; }
   body.dark .tag.note { background: #352e20; color: #ffb347; }
+  body.dark .tag.predo-to { background: #1e2a45; color: #7aa2ff; }
+  body.dark .tag.predo-from { background: #1c3528; color: #6ee7a0; }
   body.dark .tag-btn { border-color: #4a4a5a; color: #7a7a90; }
   body.dark .tag-btn:hover { border-color: #9b93ff; color: #9b93ff; }
   body.dark .tag-dropdown { background: #1e1e2e; border-color: #444; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
@@ -1458,14 +1476,18 @@
   <!-- CHAT ASSISTANT -->
   <div class="chat-section">
     <div class="chat-header">
-      <div class="chat-avatar">✦</div>
+      <div class="chat-header-top">
+        <div class="chat-avatar">✦</div>
+        <div class="chat-header-controls">
+          <span id="chatClearBtn" onclick="clearChat()" title="Clear chat history" style="font-size:0.75rem; cursor:pointer; padding:3px 8px; border-radius:99px; background:rgba(0,0,0,0.05); color:#888; white-space:nowrap;">Clear</span>
+          <span id="apiKeyStatus" onclick="showKeyPrompt()" title="Click to set API key" style="font-size:0.75rem; cursor:pointer; padding:3px 8px; border-radius:99px; background:rgba(0,0,0,0.05); color:#888; white-space:nowrap;">⚪ Offline</span>
+          <button class="chat-close-btn" onclick="closeAssistant()" title="Close assistant" aria-label="Close assistant">✕</button>
+        </div>
+      </div>
       <div class="chat-header-info">
-        <div class="chat-header-title" id="chatTitle">Claude Assistant</div>
+        <div class="chat-header-title" id="chatTitle">AI Agent</div>
         <div class="chat-header-sub" id="chatSubtitle">Ask me to draft, schedule, remind, or action any item</div>
       </div>
-      <span id="chatClearBtn" onclick="clearChat()" title="Clear chat history" style="font-size:0.75rem; cursor:pointer; padding:3px 8px; border-radius:99px; background:rgba(0,0,0,0.05); color:#888; white-space:nowrap;">Clear</span>
-      <span id="apiKeyStatus" onclick="showKeyPrompt()" title="Click to set API key" style="font-size:0.75rem; cursor:pointer; padding:3px 8px; border-radius:99px; background:rgba(0,0,0,0.05); color:#888; white-space:nowrap;">⚪ Offline</span>
-      <button class="chat-close-btn" onclick="closeAssistant()" title="Close assistant" aria-label="Close assistant">✕</button>
     </div>
     <div class="chat-messages" id="chatMessages"></div>
     <div class="chat-input-area" id="chatInputArea">
@@ -1485,14 +1507,14 @@
     <div class="action-sheet-handle"></div>
     <div class="action-sheet-item-label">Task</div>
     <div class="action-sheet-item-text" id="asItemText"></div>
-    <div class="action-sheet-prompt-label">What would you like Claude to do with this?</div>
+    <div class="action-sheet-prompt-label" id="asPromptLabel">What would you like the AI Agent to do with this?</div>
     <div class="action-sheet-quick" id="asQuickChips"></div>
     <textarea class="action-sheet-textarea" id="asTextarea" placeholder="Add more context, or just press Send…" rows="3"></textarea>
     <div class="action-sheet-footer">
       <button class="action-sheet-cancel" onclick="closeActionSheet()">Cancel</button>
       <button class="action-sheet-send" onclick="sendActionSheet()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-        Send to Claude
+        <span id="asSendLabel">Send to AI Agent</span>
       </button>
     </div>
   </div>
@@ -1543,7 +1565,7 @@
     </div>
     <div class="task-card-footer">
       <button class="tc-delete" id="tcDelete" onclick="tcDelete()">Delete</button>
-      <button class="tc-claude" id="tcClaude" onclick="tcAskClaude()" title="Ask Claude to action this">⚡ Claude</button>
+      <button class="tc-claude" id="tcClaude" onclick="tcAskClaude()" title="Ask the AI Agent to action this">⚡ <span id="tcClaudeLabel">AI Agent</span></button>
       <button class="tc-cancel" onclick="cancelTaskCard()">Cancel</button>
       <button class="tc-save" id="tcSave" onclick="saveTaskCard()">Save</button>
     </div>
@@ -1583,6 +1605,17 @@
           ">Test</button>
         </div>
         <div id="sheetsTestResult" style="font-size: 0.8rem; margin-top: 6px; color: #888;"></div>
+      </div>
+      <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Pre-do Endpoint URL</label>
+          <span title="Items tagged → pre-do POST their JSON here on first save, for automated processing. Leave blank to disable." style="font-size: 0.8rem; color: #6c63ff; cursor: help;">ℹ️</span>
+        </div>
+        <input id="settingsPredoUrl" type="url" placeholder="https://… (optional — receives → pre-do items)" style="
+          width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
+          font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
+        ">
+        <div style="font-size: 0.76rem; margin-top: 6px; color: #aaa;">Tag an item <b>→ pre-do</b> to send it here automatically. Items returning from pre-do use <b>← pre-do</b>.</div>
       </div>
       <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1680,7 +1713,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.2.1'; // Increment when deploying
+const APP_VERSION = '1.2.2'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1724,6 +1757,85 @@ function postToSheet(body) {
     method: 'POST',
     body: JSON.stringify(payload)
   });
+}
+
+// ── Pre-do integration ───────────────────────────────────────────────────────
+// Items tagged "→ pre-do" POST their JSON to this endpoint on first save, for
+// automated processing. Items coming back from pre-do are tagged "← pre-do".
+// Endpoint is entered at runtime (Settings) — kept out of the repo, like the
+// Sheets URL. No custom headers, so the POST stays CORS-preflight-free.
+const PREDO_URL_STORAGE = 'todo_predo_url_v1';
+
+function getPredoUrl() {
+  try { return localStorage.getItem(PREDO_URL_STORAGE) || ''; } catch(e) { return ''; }
+}
+
+function setPredoUrl(url) {
+  try {
+    if (url) localStorage.setItem(PREDO_URL_STORAGE, url);
+    else localStorage.removeItem(PREDO_URL_STORAGE);
+  } catch(e) {}
+}
+
+function postToPredo(body) {
+  const token = getAuthToken();
+  const payload = token ? { ...body, token } : body;
+  return fetch(getPredoUrl(), { method: 'POST', body: JSON.stringify(payload) });
+}
+
+// Fire-and-forget: send a single item to pre-do for automated processing.
+function sendItemToPredo(item) {
+  if (!getPredoUrl()) return;
+  const payload = {
+    source: 'todo-app',
+    type: 'to-predo',
+    sentAt: new Date().toISOString(),
+    item: {
+      id: item.id,
+      text: item.text,
+      section: item.section,
+      dueDate: item.dueDate || null,
+      tag: (item.tags || []).join(','),
+      notes: item.notes || null,
+      createdAt: item.createdAt || null
+    }
+  };
+  postToPredo(payload).catch(e => console.warn('Pre-do POST failed:', e.message));
+}
+
+// Stamp pre-do notes + trigger the send. Idempotent: a "Sent to pre-do" note
+// guards against re-sending on subsequent saves. Returns true if it changed the
+// item (so the caller can bump updatedAt).
+function processPredoTags(item) {
+  if (!item || !Array.isArray(item.tags)) return false;
+  const notes = parseNotes(item.notes);
+  const has = re => notes.some(n => re.test(n.text || ''));
+  const stamp = new Date().toISOString();
+  let changed = false;
+
+  // → pre-do : send to pre-do on first save
+  if (item.tags.includes('→ pre-do') && !has(/sent to pre-do/i)) {
+    if (getPredoUrl()) {
+      sendItemToPredo(item);
+      notes.push({ text: '→ Sent to pre-do', date: stamp });
+      changed = true;
+    } else if (!has(/marked for pre-do/i)) {
+      notes.push({ text: '→ Marked for pre-do (set the endpoint in Settings to send)', date: stamp });
+      changed = true;
+    }
+  }
+
+  // ← pre-do : received from pre-do
+  if (item.tags.includes('← pre-do') && !has(/from pre-do/i)) {
+    notes.push({ text: '← From pre-do', date: stamp });
+    changed = true;
+  }
+
+  if (changed) {
+    item.notes = stringifyNotes(notes);
+    item.updatedAt = stamp;
+  }
+  return changed;
 }
 
 function getLastSyncTime() {
@@ -2255,7 +2367,7 @@ function makeItemEl(section, item) {
     tagWrap.className = 'tag-picker-wrap';
     item.tags.forEach(tag => {
       const tagEl = document.createElement('span');
-      tagEl.className = 'tag ' + (tag === 'urgent' ? 'urgent' : tag === 'note' ? 'note' : '');
+      tagEl.className = 'tag ' + tagClass(tag);
       tagEl.textContent = tag;
       tagEl.style.cursor = 'pointer';
       tagEl.title = 'Tap to edit';
@@ -2429,7 +2541,16 @@ function moveItem(fromSection, id, toSection) {
 
 // ── Tag Picker ───────────────────────────────────────────────────────────────
 
-const PRESET_TAGS = ['urgent', 'note', 'waiting', 'low'];
+const PRESET_TAGS = ['urgent', 'waiting', 'low', '→ pre-do', '← pre-do'];
+
+// Maps a tag to its CSS modifier class (shared by row tags + task-card chips).
+function tagClass(tag) {
+  if (tag === 'urgent') return 'urgent';
+  if (tag === 'note') return 'note';
+  if (tag === '→ pre-do') return 'predo-to';
+  if (tag === '← pre-do') return 'predo-from';
+  return '';
+}
 
 function toggleTagPicker(wrapEl, section, id) {
   // Close any open pickers
@@ -2610,6 +2731,11 @@ function openActionSheet(section, id) {
 
   document.getElementById('asItemText').textContent = item.text;
 
+  // Reflect the active AI Agent (e.g. DeepSeek / Claude) in the labels
+  const agent = providerLabel(getActiveProvider());
+  document.getElementById('asPromptLabel').textContent = `What would you like the ${agent} to do with this?`;
+  document.getElementById('asSendLabel').textContent = `Send to ${agent}`;
+
   // Populate quick chips
   const chipsEl = document.getElementById('asQuickChips');
   chipsEl.innerHTML = '';
@@ -2775,6 +2901,7 @@ function openTaskCard(mode, section, id) {
   document.getElementById('tcSave').textContent = mode === 'edit' ? 'Save' : 'Add';
   document.getElementById('tcDelete').style.display = mode === 'edit' ? '' : 'none';
   document.getElementById('tcClaude').style.display = mode === 'edit' ? '' : 'none';
+  document.getElementById('tcClaudeLabel').textContent = providerLabel(getActiveProvider());
   document.getElementById('tcNoteInput').value = '';
 
   // Snapshot original field values to detect unsaved changes on Cancel.
@@ -2805,7 +2932,7 @@ function renderTcTags() {
   }
   taskCardContext.tags.forEach(tag => {
     const chip = document.createElement('span');
-    chip.className = 'tc-tag-chip ' + (tag === 'urgent' ? 'urgent' : tag === 'note' ? 'note' : '');
+    chip.className = 'tc-tag-chip ' + tagClass(tag);
     chip.appendChild(document.createTextNode(tag));
     const x = document.createElement('button');
     x.textContent = '✕';
@@ -2918,13 +3045,16 @@ function saveTaskCard() {
   if (ctx.mode === 'create') {
     const id = newSection[0] + Date.now();
     if (!Array.isArray(state[newSection])) state[newSection] = [];
-    state[newSection].push({
+    const newItem = {
       id, text, section: newSection, done: false,
       tags: ctx.tags.slice(), action: null,
       createdAt: now, dueDate, completedAt: null,
       notes: ctx.notes.length ? stringifyNotes(ctx.notes) : null,
       updatedAt: now
-    });
+    };
+    state[newSection].push(newItem);
+    // → pre-do: send on first save; ← pre-do: stamp a note
+    processPredoTags(newItem);
   } else {
     const item = findItem(ctx.section, ctx.id);
     if (!item) { closeTaskCard(); return; }
@@ -2939,6 +3069,8 @@ function saveTaskCard() {
       if (!Array.isArray(state[newSection])) state[newSection] = [];
       state[newSection].push(item);
     }
+    // → pre-do: send on first save; ← pre-do: stamp a note
+    processPredoTags(item);
   }
   saveState();
   closeTaskCard();
@@ -3015,6 +3147,7 @@ document.getElementById('modalOverlay').addEventListener('click', e => {
 function showSettings() {
   document.getElementById('settingsOverlay').classList.add('visible');
   document.getElementById('settingsSheetsUrl').value = getSheetsUrl();
+  document.getElementById('settingsPredoUrl').value = getPredoUrl();
   document.getElementById('settingsApiKey').value = getApiKey();
   document.getElementById('settingsDeepSeekKey').value = getDeepSeekKey();
   document.getElementById('settingsProvider').value = getActiveProvider() || 'anthropic';
@@ -3239,6 +3372,8 @@ function saveSettings() {
   const deepseekKey = document.getElementById('settingsDeepSeekKey').value.trim();
   const provider = document.getElementById('settingsProvider').value;
   if (url.startsWith('https://script.google.com/')) setSheetsUrl(url);
+  const predoUrl = document.getElementById('settingsPredoUrl').value.trim();
+  if (predoUrl.startsWith('http')) setPredoUrl(predoUrl); else if (!predoUrl) setPredoUrl('');
   if (key.startsWith('sk-ant-')) setApiKey(key); else if (!key) setApiKey('');
   if (deepseekKey.startsWith('sk-')) setDeepSeekKey(deepseekKey); else if (!deepseekKey) setDeepSeekKey('');
   if (provider) setProviderPref(provider);
@@ -4424,7 +4559,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.1</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.2</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
