@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-app-v18';
+const CACHE_NAME = 'todo-app-v19';
 const URLS_TO_CACHE = [
   './',
   './todo.html',

@@ -1721,7 +1721,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.2.8'; // Increment when deploying
+const APP_VERSION = '1.2.9'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1801,20 +1801,14 @@ function setPredoToken(token) {
 // app's device name — a UA string is the most a browser will expose).
 function getSourceLabel() {
   const ua = navigator.userAgent || '';
-  let os = 'Unknown OS';
+  let os = 'Web';
   if (/iPhone/.test(ua)) os = 'iPhone';
   else if (/iPad/.test(ua)) os = 'iPad';
   else if (/Macintosh|Mac OS X/.test(ua)) os = 'Mac';
   else if (/Android/.test(ua)) os = 'Android';
   else if (/Windows/.test(ua)) os = 'Windows';
   else if (/Linux/.test(ua)) os = 'Linux';
-  let browser = 'Browser';
-  if (/Edg\//.test(ua)) browser = 'Edge';
-  else if (/OPR\//.test(ua)) browser = 'Opera';
-  else if (/Chrome\//.test(ua)) browser = 'Chrome';
-  else if (/Firefox\//.test(ua)) browser = 'Firefox';
-  else if (/Safari\//.test(ua)) browser = 'Safari';
-  return 'To Do App + ' + os + ' — ' + browser;
+  return 'To Do_' + os;
 }
 
 // Geolocation + reverse geocode to a place string like "7945, Cape Town, South
@@ -1858,18 +1852,24 @@ function getPredoLocation() {
 async function sendItemToPredo(item) {
   if (!getPredoUrl()) return;
   const location = await getPredoLocation();
-  // Fold all task metadata into a single text string; the pre-do dict only has
-  // text / location / source (matching the pre-do Shortcut).
-  const composedText = [
-    item.text,
-    'section: ' + item.section,
-    'dueDate: ' + (item.dueDate || null),
+  // Fold task metadata into a single readable text string; the pre-do dict only
+  // has text / location / source (matching the pre-do Shortcut). Dates are
+  // shortened (YYYY-MM-DD HH:MM), the section uses its friendly display name,
+  // and notes collapse to "[text date, …]".
+  const fmtDT = v => v ? String(v).slice(0, 16).replace('T', ' ') : 'null';
+  const sectionLabel = (sectionNames && sectionNames[item.section]) || item.section;
+  const notesArr = parseNotes(item.notes);
+  const notesStr = notesArr.length
+    ? '[' + notesArr.map(n => (n.text + (n.date ? ' ' + String(n.date).slice(0, 10) : '')).trim()).join(', ') + ']'
+    : 'null';
+  const composedText = item.text + ' (' + [
+    'section: ' + sectionLabel,
+    'dueDate: ' + fmtDT(item.dueDate),
     'tag: ' + (item.tags || []).join(','),
-    'notes: ' + (item.notes || null),
-    'createdAt: ' + (item.createdAt || null),
-    'id: ' + item.id,
-    'sentAt: ' + new Date().toISOString()
-  ].join('; ');
+    'notes: ' + notesStr,
+    'createdAt: ' + fmtDT(item.createdAt),
+    'id: ' + item.id
+  ].join('; ') + ')';
   const payload = {
     text: JSON.stringify({
       text: composedText,
@@ -4691,7 +4691,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.8</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.9</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
