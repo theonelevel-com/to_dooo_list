@@ -1,1 +1,6 @@
 .DS_Store
+
+# clasp — automated Apps Script deployment (private, personalised; keep out of public repo)
+.clasp.json
+.clasprc.json
+clasp-deploy/

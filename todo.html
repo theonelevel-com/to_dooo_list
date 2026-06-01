@@ -108,12 +108,37 @@
   }
   .add-btn:hover { color: #6c63ff; }
 
+  /* Refresh FAB (Shop-Wise style, accent blue) */
+  .reload-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #6c63ff;
+    color: #fff;
+    border: none;
+    font-size: 22px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+    cursor: pointer;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.5s, background 0.15s, opacity 0.2s;
+  }
+  .reload-fab:active { background: #5a52d5; }
+  .reload-fab.spinning { transform: rotate(360deg); }
+  .reload-fab:disabled { opacity: 0.5; cursor: default; }
+  @media print { .reload-fab { display: none !important; } }
+
   .todo-item {
     display: flex;
     align-items: flex-start;
     flex-wrap: wrap;
-    gap: 2px 12px;
-    padding: 8px 60px 8px 0;
+    gap: 4px 12px;
+    padding: 13px 6px 13px 0;
     border-bottom: 1px solid #f3f3f3;
     transition: opacity 0.3s;
     position: relative;
@@ -555,15 +580,66 @@
   .btn-secondary:hover { background: #e0e0e0; }
 
   /* Chat widget */
+  /* Assistant is a right-side slide-in drawer: full height, half width,
+     collapsed by default. The list on the left keeps its size and stays
+     scrollable underneath. */
   .chat-section {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    height: 100dvh;
+    width: 50%;
     background: #fff;
-    border-radius: 16px;
-    margin-bottom: 18px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    border-radius: 0;
+    margin-bottom: 0;
+    box-shadow: -6px 0 28px rgba(0,0,0,0.18);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 400;
   }
+  .chat-section.open { transform: translateX(0); }
+  @media (max-width: 760px) { .chat-section { width: 86%; } }
+
+  /* Launcher FAB (gradient, matches the assistant avatar) */
+  .assistant-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(env(safe-area-inset-bottom) + 80px);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    color: #fff;
+    border: none;
+    font-size: 22px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+    cursor: pointer;
+    z-index: 65;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .assistant-fab:active { transform: scale(0.94); }
+  @media print { .assistant-fab { display: none !important; } }
+  .chat-close-btn {
+    background: rgba(0,0,0,0.05);
+    border: none;
+    border-radius: 99px;
+    width: 26px;
+    height: 26px;
+    font-size: 0.9rem;
+    color: #888;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .chat-close-btn:hover { background: rgba(0,0,0,0.1); color: #333; }
+  body.dark .chat-close-btn { background: rgba(255,255,255,0.08); color: #aaa; }
 
   .chat-header {
     display: flex;
@@ -612,7 +688,7 @@
   .chat-messages {
     padding: 16px 16px 8px;
     min-height: 180px;
-    max-height: 340px;
+    flex: 1 1 auto;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -1253,11 +1329,9 @@
   body.dark .dark-toggle:hover { background: #2e2e40; }
   body.dark .section-name-input { background: #252535; color: #eee; border-color: #6c63ff; }
   body.dark .due-date-wrap label { color: #7a7a90; }
-  body.dark #syncStatus { color: #22c55e !important; }
   body.dark #apiKeyStatus { background: rgba(255,255,255,0.08); color: #9a9ab0; }
-  body.dark #syncBadge { background: #252535; color: #e0e0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
-  body.dark header button[title="Settings"],
-  body.dark header button[title="Refresh from Sheets"] { background: #252535 !important; border-color: #3a3a4c !important; color: #c0c0d0 !important; }
+  /* Floating sync badge keeps the light palette in dark mode (white pill, dark text) */
+  body.dark header button[title="Settings"] { background: #252535 !important; border-color: #3a3a4c !important; color: #c0c0d0 !important; }
 
   /* Footer */
   .footer {
@@ -1358,8 +1432,6 @@
         <span style="font-size:1.5rem; font-weight:700; color:#6c63ff;" id="pctLabel">0%</span>
       </div>
       <div style="display:flex; gap:8px; margin-top:2px; align-items:center; justify-content:flex-end;">
-        <div id="syncStatus" style="font-size:0.72rem; color:#aaa; cursor:pointer; white-space:nowrap;">◌ Loading…</div>
-        <button onclick="manualRefresh(this)" title="Refresh from Sheets" style="background:#f5f5f5; border:1px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:0.75rem; padding:4px 10px; color:#666; font-weight:600;">↻ Refresh</button>
         <button onclick="showSettings()" title="Settings" style="background:#f5f5f5; border:1px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:0.75rem; padding:4px 10px; color:#666; font-weight:600;">Settings</button>
       </div>
     </div>
@@ -1388,6 +1460,7 @@
       </div>
       <span id="chatClearBtn" onclick="clearChat()" title="Clear chat history" style="font-size:0.75rem; cursor:pointer; padding:3px 8px; border-radius:99px; background:rgba(0,0,0,0.05); color:#888; white-space:nowrap;">Clear</span>
       <span id="apiKeyStatus" onclick="showKeyPrompt()" title="Click to set API key" style="font-size:0.75rem; cursor:pointer; padding:3px 8px; border-radius:99px; background:rgba(0,0,0,0.05); color:#888; white-space:nowrap;">⚪ Offline</span>
+      <button class="chat-close-btn" onclick="closeAssistant()" title="Close assistant" aria-label="Close assistant">✕</button>
     </div>
     <div class="chat-messages" id="chatMessages"></div>
     <div class="chat-input-area" id="chatInputArea">
@@ -1466,7 +1539,7 @@
     <div class="task-card-footer">
       <button class="tc-delete" id="tcDelete" onclick="tcDelete()">Delete</button>
       <button class="tc-claude" id="tcClaude" onclick="tcAskClaude()" title="Ask Claude to action this">⚡ Claude</button>
-      <button class="tc-cancel" onclick="closeTaskCard()">Cancel</button>
+      <button class="tc-cancel" onclick="cancelTaskCard()">Cancel</button>
       <button class="tc-save" id="tcSave" onclick="saveTaskCard()">Save</button>
     </div>
   </div>
@@ -1602,7 +1675,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.1.9'; // Increment when deploying
+const APP_VERSION = '1.2.0'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1713,6 +1786,18 @@ function saveLocalState() {
 }
 
 // ── Google Sheets sync ────────────────────────────────────────────────────────
+//
+// CONFLICT RESOLUTION (last-write-wins by `updatedAt` ISO timestamp):
+//   • Pull (sheetsToState): for a given item id, the REMOTE copy wins when
+//     remote.updatedAt >= local.updatedAt — i.e. exact ties favour the server.
+//     Otherwise the local copy is kept.
+//   • Push (Apps Script `sync` action): the incoming (local) copy wins only
+//     when incoming.updatedAt > existing(server).updatedAt — i.e. exact ties
+//     favour the server's existing copy.
+//   • Every mutation sets item.updatedAt = now, so the most recently edited
+//     device wins. Items missing updatedAt fall back to epoch (oldest).
+//   • pushToSheets() pulls again afterwards (unless another local edit is
+//     queued) so the merged result is reconciled back onto this device.
 
 function setSyncStatus(status) {
   // status: 'synced' | 'syncing' | 'error' | 'offline' | 'setup'
@@ -2557,7 +2642,7 @@ function sendActionSheet() {
   closeActionSheet();
 
   // Scroll chat into view
-  document.querySelector('.chat-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  openAssistant();
 
   // Build a rich, context-aware message for Claude
   const allTodos = getAllTodos();
@@ -2687,6 +2772,15 @@ function openTaskCard(mode, section, id) {
   document.getElementById('tcClaude').style.display = mode === 'edit' ? '' : 'none';
   document.getElementById('tcNoteInput').value = '';
 
+  // Snapshot original field values to detect unsaved changes on Cancel.
+  // (Notes are persisted on Add/remove in edit mode, so they're excluded here.)
+  taskCardContext.orig = {
+    text: document.getElementById('tcText').value.trim(),
+    section: document.getElementById('tcSection').value,
+    due: due.value,
+    tags: taskCardContext.tags.slice()
+  };
+
   renderTcTags();
   renderTcNotes();
 
@@ -2755,7 +2849,7 @@ function renderTcNotes() {
     const del = document.createElement('button');
     del.textContent = '✕';
     del.title = 'Delete note';
-    del.addEventListener('click', () => { taskCardContext.notes.splice(idx, 1); renderTcNotes(); });
+    del.addEventListener('click', () => { taskCardContext.notes.splice(idx, 1); renderTcNotes(); tcPersistNotes(); });
     row.appendChild(txt);
     row.appendChild(del);
     list.appendChild(row);
@@ -2770,6 +2864,35 @@ function tcAddNote() {
   taskCardContext.notes.push({ text, date: new Date().toISOString() });
   input.value = '';
   renderTcNotes();
+  tcPersistNotes();
+}
+
+// Persist notes immediately on Add/remove when editing an existing item, so
+// the user doesn't also have to click Save on the card just to keep a note.
+function tcPersistNotes() {
+  if (!taskCardContext || taskCardContext.mode !== 'edit') return;
+  const item = findItem(taskCardContext.section, taskCardContext.id);
+  if (!item) return;
+  item.notes = taskCardContext.notes.length ? stringifyNotes(taskCardContext.notes) : null;
+  item.updatedAt = new Date().toISOString();
+  saveState();
+}
+
+// True if a non-note field differs from the snapshot taken when the card opened.
+function taskCardDirty() {
+  if (!taskCardContext || !taskCardContext.orig) return false;
+  const o = taskCardContext.orig;
+  if (document.getElementById('tcText').value.trim() !== o.text) return true;
+  if (document.getElementById('tcSection').value !== o.section) return true;
+  if (document.getElementById('tcDue').value !== o.due) return true;
+  const tags = taskCardContext.tags;
+  if (tags.length !== o.tags.length || tags.some((t, i) => t !== o.tags[i])) return true;
+  return false;
+}
+
+function cancelTaskCard() {
+  if (taskCardDirty() && !confirm('Discard unsaved changes?')) return;
+  closeTaskCard();
 }
 
 function closeTaskCard() {
@@ -2832,7 +2955,7 @@ function tcAskClaude() {
 }
 
 document.getElementById('taskCardOverlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('taskCardOverlay')) closeTaskCard();
+  if (e.target === document.getElementById('taskCardOverlay')) cancelTaskCard();
 });
 
 // ── Progress ──────────────────────────────────────────────────────────────────
@@ -3620,6 +3743,28 @@ function resetModal() {
   document.getElementById('modalNo').textContent = 'Just mark done';
 }
 
+// ── Assistant drawer ──────────────────────────────────────────────────────────
+function openAssistant() {
+  const drawer = document.querySelector('.chat-section');
+  if (drawer) drawer.classList.add('open');
+  const input = document.getElementById('chatInput');
+  if (input && input.offsetParent !== null) setTimeout(() => input.focus(), 250);
+}
+function closeAssistant() {
+  const drawer = document.querySelector('.chat-section');
+  if (drawer) drawer.classList.remove('open');
+}
+function toggleAssistant() {
+  const drawer = document.querySelector('.chat-section');
+  if (drawer) drawer.classList.toggle('open');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const drawer = document.querySelector('.chat-section');
+    if (drawer && drawer.classList.contains('open')) closeAssistant();
+  }
+});
+
 function updateKeyIndicator() {
   const provider = getActiveProvider();
   const el = document.getElementById('apiKeyStatus');
@@ -4150,8 +4295,8 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('focus', refreshFromSheets);
 
-// (#4) Poll every 60s while the app is in the foreground
-const SYNC_POLL_MS = 60000;
+// (#4) Poll while the app is in the foreground (30s) for snappier cross-device sync
+const SYNC_POLL_MS = 30000;
 setInterval(refreshFromSheets, SYNC_POLL_MS);
 
 // (#5) Manual refresh button — flush any pending local change, then pull
@@ -4169,6 +4314,24 @@ async function manualRefresh(btn) {
     loadSectionNamesFromSheet();
   } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+// Refresh FAB (Shop-Wise style) — spins while pulling from Sheets
+async function refreshFab(btn) {
+  if (!getSheetsUrl()) { showSettings(); return; }
+  btn.classList.add('spinning');
+  btn.disabled = true;
+  try {
+    if (syncPending) { clearTimeout(syncTimer); await pushToSheets(); }
+    else { await loadFromSheets(); }
+    cleanupCompletedItems();
+    loadSectionNamesFromSheet();
+  } catch(e) {
+    // swallow — setSyncStatus already reflects errors
+  } finally {
+    setTimeout(() => btn.classList.remove('spinning'), 600);
+    btn.disabled = false;
   }
 }
 
@@ -4245,12 +4408,18 @@ if ('serviceWorker' in navigator) {
   <span id="syncBadgeText">◌ Loading…</span>
 </div>
 
+<!-- Assistant launcher FAB -->
+<button class="assistant-fab" id="assistantFab" onclick="openAssistant()" aria-label="Open AI assistant" title="AI Assistant">✦</button>
+
+<!-- Refresh FAB -->
+<button class="reload-fab" id="reloadFab" onclick="refreshFab(this)" aria-label="Refresh from Sheets" title="Refresh from Sheets">↻</button>
+
 <!-- Footer -->
 <link href="https://fonts.googleapis.com/css?family=Quicksand:400,700" rel="stylesheet" type="text/css">
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.1.9</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.0</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
