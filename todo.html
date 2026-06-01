@@ -1721,7 +1721,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.2.3'; // Increment when deploying
+const APP_VERSION = '1.2.4'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1797,22 +1797,68 @@ function setPredoToken(token) {
   } catch(e) {}
 }
 
+// Best-effort device label from the browser (the web equivalent of the pre-do
+// app's device name — a UA string is the most a browser will expose).
+function getSourceLabel() {
+  const ua = navigator.userAgent || '';
+  let os = 'Unknown OS';
+  if (/iPhone/.test(ua)) os = 'iPhone';
+  else if (/iPad/.test(ua)) os = 'iPad';
+  else if (/Macintosh|Mac OS X/.test(ua)) os = 'Mac';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  let browser = 'Browser';
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/OPR\//.test(ua)) browser = 'Opera';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua)) browser = 'Safari';
+  return os + ' — ' + browser;
+}
+
+// Geolocation + reverse geocode to a place string like "7945, Cape Town, South
+// Africa" (mirrors the pre-do app). Resolves null if unavailable/denied. Uses
+// BigDataCloud's keyless, CORS-friendly reverse-geocode (simple GET, no preflight).
+function getPredoLocation() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve(null);
+    let done = false;
+    const finish = v => { if (!done) { done = true; resolve(v); } };
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      const coords = latitude.toFixed(4) + ', ' + longitude.toFixed(4);
+      fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + latitude + '&longitude=' + longitude + '&localityLanguage=en')
+        .then(r => r.json())
+        .then(d => {
+          const parts = [d.postcode, d.city || d.locality, d.countryName].filter(Boolean);
+          finish(parts.length ? parts.join(', ') : coords);
+        })
+        .catch(() => finish(coords));
+    }, () => finish(null), { timeout: 8000, maximumAge: 600000 });
+  });
+}
+
 // Fire-and-forget: send a single item to pre-do for automated processing.
-// The endpoint expects { text: <item dictionary>, token: <pre-do token> } — no
-// custom headers, so the POST stays CORS-preflight-free.
-function sendItemToPredo(item) {
+// The endpoint expects { text: { text: <item dict>, location, source }, token }
+// — no custom headers, so the POST stays CORS-preflight-free.
+async function sendItemToPredo(item) {
   if (!getPredoUrl()) return;
+  const location = await getPredoLocation();
   const payload = {
     text: {
-      id: item.id,
-      text: item.text,
-      section: item.section,
-      dueDate: item.dueDate || null,
-      tag: (item.tags || []).join(','),
-      notes: item.notes || null,
-      createdAt: item.createdAt || null,
-      source: 'todo-app',
-      sentAt: new Date().toISOString()
+      text: {
+        text: item.text,
+        section: item.section,
+        dueDate: item.dueDate || null,
+        tag: (item.tags || []).join(','),
+        notes: item.notes || null,
+        createdAt: item.createdAt || null,
+        id: item.id,
+        sentAt: new Date().toISOString()
+      },
+      location: location || null,
+      source: getSourceLabel()
     },
     token: getPredoToken() || getAuthToken() || ''
   };
@@ -4616,7 +4662,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.3</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.4</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
