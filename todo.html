@@ -1721,7 +1721,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.2.6'; // Increment when deploying
+const APP_VERSION = '1.2.7'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1860,16 +1860,14 @@ async function sendItemToPredo(item) {
   const location = await getPredoLocation();
   const payload = {
     text: JSON.stringify({
-      text: {
-        text: item.text,
-        section: item.section,
-        dueDate: item.dueDate || null,
-        tag: (item.tags || []).join(','),
-        notes: item.notes || null,
-        createdAt: item.createdAt || null,
-        id: item.id,
-        sentAt: new Date().toISOString()
-      },
+      text: item.text,
+      section: item.section,
+      dueDate: item.dueDate || null,
+      tag: (item.tags || []).join(','),
+      notes: item.notes || null,
+      createdAt: item.createdAt || null,
+      id: item.id,
+      sentAt: new Date().toISOString(),
       location: location || '',
       source: getSourceLabel()
     }),
@@ -4688,7 +4686,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.6</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.7</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
