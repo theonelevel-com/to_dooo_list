@@ -1721,7 +1721,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.2.9'; // Increment when deploying
+const APP_VERSION = '1.3.0'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1972,7 +1972,14 @@ let SECTIONS_ORDER = loadSectionsOrder();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
+// Reserved hidden section for soft-deleted items (tombstones). Excluded from
+// SECTIONS_ORDER, so it never shows in the UI, move menus, counts, progress, or
+// section management — it exists only to carry deletions across devices via
+// sync (a plain local delete vanishes here but is resurrected on the next pull,
+// because the backend `sync` merges rather than replaces).
+const DELETED_SECTION = '__deleted__';
 let state        = loadLocalState();
+if (!Array.isArray(state[DELETED_SECTION])) state[DELETED_SECTION] = [];
 let pendingCheck = null;
 let syncTimer    = null;
 let syncPending  = false;
@@ -2068,6 +2075,7 @@ function sheetsToState(todos) {
   const s = {};
   SECTIONS_ORDER.forEach(k => { s[k] = []; });
   if (!s.shared) s.shared = [];
+  s[DELETED_SECTION] = []; // retain incoming tombstones in the hidden bucket
   todos.forEach(t => {
     const sec = t.section && s[t.section] !== undefined ? t.section : (SECTIONS_ORDER[0] || 'shared');
     const incoming = {
@@ -2112,6 +2120,7 @@ function sheetsToState(todos) {
 // Ensure every section key in SECTIONS_ORDER has a backing array in state
 function ensureStateBuckets() {
   SECTIONS_ORDER.forEach(sec => { if (!Array.isArray(state[sec])) state[sec] = []; });
+  if (!Array.isArray(state[DELETED_SECTION])) state[DELETED_SECTION] = [];
 }
 
 // Convert sectioned state → flat array for Sheets
@@ -2134,6 +2143,20 @@ function stateToFlat() {
       updatedAt:   item.updatedAt || new Date(0).toISOString(),
     }));
   });
+  // Tombstones ride along as normal rows (section = __deleted__) so the deletion
+  // wins the server-side merge by updatedAt and propagates to every device.
+  (state[DELETED_SECTION] || []).forEach(item => rows.push({
+    id:          item.id,
+    text:        item.text,
+    section:     DELETED_SECTION,
+    done:        true,
+    tag:         item.tags && item.tags.length ? item.tags.join(',') : '',
+    createdAt:   item.createdAt || new Date().toISOString(),
+    dueDate:     item.dueDate || '',
+    completedAt: item.completedAt || item.deletedAt || new Date().toISOString(),
+    notes:       item.notes || '',
+    updatedAt:   item.updatedAt || new Date(0).toISOString(),
+  }));
   return rows;
 }
 
@@ -2257,12 +2280,33 @@ function cleanupCompletedItems() {
     state[sec] = keep;
     if (state[sec].length !== before) changed = true;
   });
+
+  // Purge tombstones finalised before today: hard-delete the row from the Sheet
+  // (the backend `sync` merge never removes absent rows) and drop it locally.
+  if (Array.isArray(state[DELETED_SECTION]) && state[DELETED_SECTION].length) {
+    const keepT = [];
+    state[DELETED_SECTION].forEach(item => {
+      const when = item.deletedAt || item.completedAt;
+      const t = when ? new Date(when) : null;
+      if (t) t.setHours(0, 0, 0, 0);
+      if (t && t < today) { purgeTombstone(item.id); changed = true; }
+      else keepT.push(item);
+    });
+    state[DELETED_SECTION] = keepT;
+  }
+
   if (changed) {
     saveLocalState();
     render();
     // Send archived items to Done sheet
     if (toArchive.length) archiveToDoneSheet(toArchive);
   }
+}
+
+// Hard-remove a tombstone row from the Sheet via the backend's delete action.
+function purgeTombstone(id) {
+  if (!getSheetsUrl()) return;
+  postToSheet({ action: 'delete', id }).catch(e => console.warn('Tombstone purge failed:', e.message));
 }
 
 async function archiveToDoneSheet(items) {
@@ -2884,7 +2928,29 @@ document.getElementById('actionSheetOverlay').addEventListener('click', e => {
 });
 
 function deleteItem(section, id) {
-  state[section] = state[section].filter(i => i.id !== id);
+  ensureStateBuckets();
+  // Find the item across sections (the passed section may be stale after a move).
+  let item = null, fromSec = section;
+  if (Array.isArray(state[section])) item = state[section].find(i => i.id === id);
+  if (!item) {
+    for (const k of SECTIONS_ORDER) {
+      const hit = (state[k] || []).find(i => i.id === id);
+      if (hit) { item = hit; fromSec = k; break; }
+    }
+  }
+  if (!item) { render(); return; }
+  // Soft-delete (tombstone): keep the row so the deletion wins the server merge
+  // by updatedAt and propagates everywhere, instead of vanishing locally and
+  // being resurrected on the next pull. Hidden + purged by the daily cleaner.
+  state[fromSec] = (state[fromSec] || []).filter(i => i.id !== id);
+  const now = new Date().toISOString();
+  item.restoreSection = fromSec; // remembered origin (handy for debugging/undo)
+  item.section     = DELETED_SECTION;
+  item.done        = true;
+  item.deletedAt   = now;
+  item.completedAt = item.completedAt || now;
+  item.updatedAt   = now;
+  state[DELETED_SECTION].push(item);
   saveState();
   render();
 }
@@ -3904,10 +3970,10 @@ function parseClaudeResponse(raw) {
         if (item) { markDone(sec, item.id, true); }
       });
     } else if (act.action === 'delete' && act.id) {
-      SECTIONS_ORDER.forEach(sec => {
-        state[sec] = state[sec].filter(i => i.id !== act.id);
-      });
-      saveState(); render();
+      // Tombstone via deleteItem so the deletion survives sync (not a local-only drop).
+      let sec = null;
+      SECTIONS_ORDER.forEach(k => { if ((state[k] || []).some(i => i.id === act.id)) sec = k; });
+      if (sec) deleteItem(sec, act.id);
     } else if (act.action === 'clearDone') {
       SECTIONS_ORDER.forEach(sec => { state[sec] = state[sec].filter(i => !i.done); });
       saveState(); render();
@@ -4691,7 +4757,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.9</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.3.0</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
