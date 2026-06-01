@@ -1616,6 +1616,14 @@
           font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
         ">
         <div style="font-size: 0.76rem; margin-top: 6px; color: #aaa;">Tag an item <b>→ pre-do</b> to send it here automatically. Items returning from pre-do use <b>← pre-do</b>.</div>
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: 14px;">
+          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Pre-do Token</label>
+          <span title="Sent in the POST body as 'token' to authenticate with the Pre-do endpoint. Leave blank to reuse the Sheets auth token." style="font-size: 0.8rem; color: #6c63ff; cursor: help;">ℹ️</span>
+        </div>
+        <input id="settingsPredoToken" type="password" placeholder="(optional — shared secret for Pre-do)" style="
+          width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
+          font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
+        ">
       </div>
       <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1713,7 +1721,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.2.2'; // Increment when deploying
+const APP_VERSION = '1.2.3'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1765,6 +1773,7 @@ function postToSheet(body) {
 // Endpoint is entered at runtime (Settings) — kept out of the repo, like the
 // Sheets URL. No custom headers, so the POST stays CORS-preflight-free.
 const PREDO_URL_STORAGE = 'todo_predo_url_v1';
+const PREDO_TOKEN_STORAGE = 'todo_predo_token_v1';
 
 function getPredoUrl() {
   try { return localStorage.getItem(PREDO_URL_STORAGE) || ''; } catch(e) { return ''; }
@@ -1777,30 +1786,45 @@ function setPredoUrl(url) {
   } catch(e) {}
 }
 
-function postToPredo(body) {
-  const token = getAuthToken();
-  const payload = token ? { ...body, token } : body;
-  return fetch(getPredoUrl(), { method: 'POST', body: JSON.stringify(payload) });
+function getPredoToken() {
+  try { return localStorage.getItem(PREDO_TOKEN_STORAGE) || ''; } catch(e) { return ''; }
+}
+
+function setPredoToken(token) {
+  try {
+    if (token) localStorage.setItem(PREDO_TOKEN_STORAGE, token);
+    else localStorage.removeItem(PREDO_TOKEN_STORAGE);
+  } catch(e) {}
 }
 
 // Fire-and-forget: send a single item to pre-do for automated processing.
+// The endpoint expects { text: <item dictionary>, token: <pre-do token> } — no
+// custom headers, so the POST stays CORS-preflight-free.
 function sendItemToPredo(item) {
   if (!getPredoUrl()) return;
   const payload = {
-    source: 'todo-app',
-    type: 'to-predo',
-    sentAt: new Date().toISOString(),
-    item: {
+    text: {
       id: item.id,
       text: item.text,
       section: item.section,
       dueDate: item.dueDate || null,
       tag: (item.tags || []).join(','),
       notes: item.notes || null,
-      createdAt: item.createdAt || null
-    }
+      createdAt: item.createdAt || null,
+      source: 'todo-app',
+      sentAt: new Date().toISOString()
+    },
+    token: getPredoToken() || getAuthToken() || ''
   };
-  postToPredo(payload).catch(e => console.warn('Pre-do POST failed:', e.message));
+  fetch(getPredoUrl(), { method: 'POST', body: JSON.stringify(payload) })
+    .catch(e => console.warn('Pre-do POST failed:', e.message));
+}
+
+// Warn before the "→ pre-do" tag is applied — it triggers an external automated
+// action (POST to the Pre-do endpoint) on save. Returns true if the user confirms.
+function confirmPredoTag() {
+  const dest = getPredoUrl() ? 'your Pre-do endpoint' : 'Pre-do once an endpoint is set in Settings';
+  return confirm('⚠️ "→ pre-do" triggers an external action.\n\nOn save, this item will be sent to ' + dest + ' for automated processing.\n\nAdd the → pre-do tag?');
 }
 
 // Stamp pre-do notes + trigger the send. Idempotent: a "Sent to pre-do" note
@@ -2948,7 +2972,11 @@ function renderTcTags() {
     const btn = document.createElement('button');
     btn.className = 'tc-preset-btn';
     btn.textContent = '+ ' + t;
-    btn.addEventListener('click', () => { taskCardContext.tags.push(t); renderTcTags(); });
+    btn.addEventListener('click', () => {
+      if (t === '→ pre-do' && !confirmPredoTag()) return;
+      taskCardContext.tags.push(t);
+      renderTcTags();
+    });
     preset.appendChild(btn);
   });
   const custom = document.createElement('input');
@@ -2959,7 +2987,11 @@ function renderTcTags() {
     if (e.key === 'Enter') {
       e.preventDefault();
       const val = custom.value.trim().toLowerCase();
-      if (val && !taskCardContext.tags.includes(val)) { taskCardContext.tags.push(val); renderTcTags(); }
+      if (val && !taskCardContext.tags.includes(val)) {
+        if (val === '→ pre-do' && !confirmPredoTag()) return;
+        taskCardContext.tags.push(val);
+        renderTcTags();
+      }
     }
   });
   preset.appendChild(custom);
@@ -3041,6 +3073,21 @@ function saveTaskCard() {
   const dueDate = dueVal ? new Date(dueVal + 'T00:00:00').toISOString() : null;
   const now = new Date().toISOString();
   const ctx = taskCardContext;
+
+  // Save-time guard: if "→ pre-do" is set and this save would actually fire the
+  // external send (not already sent), confirm before triggering the action.
+  if (ctx.tags.includes('→ pre-do')) {
+    let alreadySent = false;
+    if (ctx.mode !== 'create') {
+      const existing = findItem(ctx.section, ctx.id);
+      const eNotes = existing ? parseNotes(existing.notes) : [];
+      alreadySent = eNotes.some(n => /sent to pre-do/i.test(n.text || ''));
+    }
+    if (!alreadySent) {
+      const dest = getPredoUrl() ? 'your Pre-do endpoint' : 'Pre-do (set the endpoint in Settings to actually send)';
+      if (!confirm('⚠️ This item is tagged "→ pre-do".\n\nSaving will send it to ' + dest + ' for automated processing.\n\nSave and send?')) return;
+    }
+  }
 
   if (ctx.mode === 'create') {
     const id = newSection[0] + Date.now();
@@ -3148,6 +3195,7 @@ function showSettings() {
   document.getElementById('settingsOverlay').classList.add('visible');
   document.getElementById('settingsSheetsUrl').value = getSheetsUrl();
   document.getElementById('settingsPredoUrl').value = getPredoUrl();
+  document.getElementById('settingsPredoToken').value = getPredoToken();
   document.getElementById('settingsApiKey').value = getApiKey();
   document.getElementById('settingsDeepSeekKey').value = getDeepSeekKey();
   document.getElementById('settingsProvider').value = getActiveProvider() || 'anthropic';
@@ -3374,6 +3422,8 @@ function saveSettings() {
   if (url.startsWith('https://script.google.com/')) setSheetsUrl(url);
   const predoUrl = document.getElementById('settingsPredoUrl').value.trim();
   if (predoUrl.startsWith('http')) setPredoUrl(predoUrl); else if (!predoUrl) setPredoUrl('');
+  const predoToken = document.getElementById('settingsPredoToken').value.trim();
+  setPredoToken(predoToken);
   if (key.startsWith('sk-ant-')) setApiKey(key); else if (!key) setApiKey('');
   if (deepseekKey.startsWith('sk-')) setDeepSeekKey(deepseekKey); else if (!deepseekKey) setDeepSeekKey('');
   if (provider) setProviderPref(provider);
@@ -3762,7 +3812,14 @@ function parseClaudeResponse(raw) {
     if (act.action === 'add' && act.section && act.text) {
       const id = act.section[0] + Date.now() + Math.random().toString(36).slice(2,5);
       if (state[act.section]) {
-        state[act.section].push({ id, text: act.text, done: false, tags: [], action: null, createdAt: new Date().toISOString(), dueDate: act.dueDate || null, completedAt: null, notes: null, updatedAt: new Date().toISOString() });
+        let tags = [];
+        if (Array.isArray(act.tags)) tags = act.tags.slice();
+        else if (typeof act.tag === 'string' && act.tag) tags = act.tag.split(',').map(s => s.trim()).filter(Boolean);
+        // → pre-do triggers an external automated action — confirm before the agent applies it.
+        if (tags.includes('→ pre-do') && !confirmPredoTag()) tags = tags.filter(t => t !== '→ pre-do');
+        const newItem = { id, text: act.text, done: false, tags, action: null, createdAt: new Date().toISOString(), dueDate: act.dueDate || null, completedAt: null, notes: null, updatedAt: new Date().toISOString() };
+        state[act.section].push(newItem);
+        processPredoTags(newItem);
         saveState(); render();
       }
     } else if (act.action === 'done' && act.id) {
@@ -4559,7 +4616,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.2</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.2.3</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
