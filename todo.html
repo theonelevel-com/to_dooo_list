@@ -1721,7 +1721,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.3.2'; // Increment when deploying
+const APP_VERSION = '1.3.3'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1997,6 +1997,7 @@ let pendingCheck = null;
 let syncTimer    = null;
 let syncPending  = false;
 let syncRetryCount = 0;
+let authPromptShown = false; // guard so the "set your token" prompt opens once per blocked run
 const MAX_SYNC_RETRIES = 3;
 
 function loadLocalState() {
@@ -2127,6 +2128,20 @@ function sheetsToState(todos) {
       }
     }
   });
+
+  // Preserve local-only ACTIVE items the server hasn't seen yet, so a pull (e.g.
+  // the 30s poll) doesn't wipe a freshly created task that failed to push — the
+  // exact symptom when a device lacks the AUTH_TOKEN. Safe because real deletes
+  // are tombstones (present on the server), and archived items are done=true.
+  const serverIds = new Set(todos.map(t => t.id));
+  SECTIONS_ORDER.forEach(sec => {
+    (state[sec] || []).forEach(item => {
+      if (!item.done && !serverIds.has(item.id) && !(s[sec] || []).some(i => i.id === item.id)) {
+        if (!s[sec]) s[sec] = [];
+        s[sec].push({ ...item });
+      }
+    });
+  });
   return s;
 }
 
@@ -2247,6 +2262,7 @@ async function pushToSheets() {
     if (data.ok) {
       setLastSyncTime();
       syncRetryCount = 0;
+      authPromptShown = false; // writes work again
       setSyncStatus('synced');
       // Reconcile: pull the server's merged result so this device reflects any
       // concurrent edits from other devices (and any conflict resolution).
@@ -2254,6 +2270,14 @@ async function pushToSheets() {
       if (!syncPending) {
         await loadFromSheets();
       }
+    } else if ((data.error || '').toLowerCase().indexOf('unauth') !== -1) {
+      // This device is missing/has the wrong AUTH_TOKEN — reads work, writes are
+      // rejected. Guide the user to set it instead of a cryptic error. The
+      // local change is kept (sheetsToState now preserves unsynced active items).
+      console.error('[Sync] Unauthorized — set the sync token on this device');
+      setSyncStatus('error');
+      showSyncError("Can't save from this device — it needs the sync token. Opening Settings…");
+      if (!authPromptShown) { authPromptShown = true; setTimeout(showSheetsUrlPrompt, 600); }
     } else {
       console.error('[Sync] Server error:', data);
       showSyncError('Failed to sync: ' + (data.error || 'unknown error'));
@@ -4754,7 +4778,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.3.2</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.3.3</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
