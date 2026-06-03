@@ -1590,26 +1590,36 @@
     <h2>Settings</h2>
     <div style="margin-top: 16px;">
       <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6c63ff; font-weight: 700; margin-bottom: 8px;">Sync · Google Sheets</div>
+
         <div style="display: flex; align-items: center; gap: 6px;">
-          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Sheets Deployment URL</label>
-          <span title="Enter your Google Apps Script deployment URL" style="font-size: 0.8rem; color: #6c63ff; cursor: help;">ℹ️</span>
+          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Deployment URL <span style="color:#ef4444;">*</span></label>
+          <button type="button" onclick="toggleHint(this)" data-hint="The Apps Script Web App URL (Deploy ▸ New deployment ▸ Web app ▸ the …/exec link). Required to sync, and must be identical on every device." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
-        <div style="display: flex; gap: 8px; margin-top: 6px;">
-          <input id="settingsSheetsUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="
-            flex: 1; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
-            font-size: 0.85rem; outline: none; font-family: monospace;
-          ">
-          <button onclick="testSheetsConnection()" style="
-            border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px; background: #f5f5f5;
-            font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap;
-          ">Test</button>
+        <input id="settingsSheetsUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="
+          width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
+          font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
+        ">
+
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: 14px;">
+          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Auth Token</label>
+          <button type="button" onclick="toggleHint(this)" data-hint="Needed ONLY if the backend Script Property AUTH_TOKEN is set. Reading works without it, but creating/deleting will fail with ‘unauthorised’. Paste the EXACT same value on every device." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
-        <div id="sheetsTestResult" style="font-size: 0.8rem; margin-top: 6px; color: #888;"></div>
+        <input id="settingsAuthToken" type="password" autocomplete="off" placeholder="only if your backend requires auth" style="
+          width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
+          font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
+        ">
+
+        <button onclick="testSheetsConnection()" style="
+          margin-top: 10px; border: 1.5px solid #6c63ff; border-radius: 8px; padding: 9px 14px; background: #6c63ff; color: white;
+          font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        ">Test connection &amp; auth</button>
+        <div id="sheetsTestResult" style="font-size: 0.8rem; margin-top: 8px; color: #888; line-height: 1.4;"></div>
       </div>
       <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
         <div style="display: flex; align-items: center; gap: 6px;">
           <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Pre-do Endpoint URL</label>
-          <span title="Items tagged → pre-do POST their JSON here on first save, for automated processing. Leave blank to disable." style="font-size: 0.8rem; color: #6c63ff; cursor: help;">ℹ️</span>
+          <button type="button" onclick="toggleHint(this)" data-hint="Items tagged → pre-do POST their JSON here on first save, for automated processing. Leave blank to disable." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
         <input id="settingsPredoUrl" type="url" placeholder="https://… (optional — receives → pre-do items)" style="
           width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
@@ -1618,7 +1628,7 @@
         <div style="font-size: 0.76rem; margin-top: 6px; color: #aaa;">Tag an item <b>→ pre-do</b> to send it here automatically. Items returning from pre-do use <b>← pre-do</b>.</div>
         <div style="display: flex; align-items: center; gap: 6px; margin-top: 14px;">
           <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Pre-do Token</label>
-          <span title="Sent in the POST body as 'token' to authenticate with the Pre-do endpoint. Leave blank to reuse the Sheets auth token." style="font-size: 0.8rem; color: #6c63ff; cursor: help;">ℹ️</span>
+          <button type="button" onclick="toggleHint(this)" data-hint="Sent in the POST body as 'token' to authenticate with the Pre-do endpoint. Leave blank to reuse the Sheets Auth Token." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
         <input id="settingsPredoToken" type="password" placeholder="(optional — shared secret for Pre-do)" style="
           width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
@@ -1721,7 +1731,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '1.3.3'; // Increment when deploying
+const APP_VERSION = '1.3.4'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -1998,6 +2008,7 @@ let syncTimer    = null;
 let syncPending  = false;
 let syncRetryCount = 0;
 let authPromptShown = false; // guard so the "set your token" prompt opens once per blocked run
+let writeAuthFailed = false; // last write was rejected (unauthorized) — keep status honest despite open reads
 const MAX_SYNC_RETRIES = 3;
 
 function loadLocalState() {
@@ -2217,7 +2228,9 @@ async function loadFromSheets() {
       // Auto-save section names on first successful sync
       pushSectionNamesToSheet();
 
-      setSyncStatus('synced');
+      // Reads are open even when writes are unauthorised — don't paint green and
+      // mask a blocked write. Stay in the error state until a write succeeds.
+      setSyncStatus(writeAuthFailed ? 'error' : 'synced');
       return true;
     } else if (data.ok && Array.isArray(data.todos) && data.todos.length === 0) {
       // Sheet is empty — push our local data up
@@ -2263,6 +2276,7 @@ async function pushToSheets() {
       setLastSyncTime();
       syncRetryCount = 0;
       authPromptShown = false; // writes work again
+      writeAuthFailed = false;
       setSyncStatus('synced');
       // Reconcile: pull the server's merged result so this device reflects any
       // concurrent edits from other devices (and any conflict resolution).
@@ -2275,9 +2289,10 @@ async function pushToSheets() {
       // rejected. Guide the user to set it instead of a cryptic error. The
       // local change is kept (sheetsToState now preserves unsynced active items).
       console.error('[Sync] Unauthorized — set the sync token on this device');
+      writeAuthFailed = true;
       setSyncStatus('error');
       showSyncError("Can't save from this device — it needs the sync token. Opening Settings…");
-      if (!authPromptShown) { authPromptShown = true; setTimeout(showSheetsUrlPrompt, 600); }
+      if (!authPromptShown) { authPromptShown = true; setTimeout(showSettings, 600); }
     } else {
       console.error('[Sync] Server error:', data);
       showSyncError('Failed to sync: ' + (data.error || 'unknown error'));
@@ -3353,9 +3368,23 @@ document.getElementById('modalOverlay').addEventListener('click', e => {
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
 
+// Tap-to-reveal field hint (title= tooltips don't work on touch). Toggles a
+// small note right under the field's label row.
+function toggleHint(btn) {
+  const row = btn.parentElement;
+  const next = row.nextElementSibling;
+  if (next && next.classList && next.classList.contains('field-hint')) { next.remove(); return; }
+  const hint = document.createElement('div');
+  hint.className = 'field-hint';
+  hint.textContent = btn.getAttribute('data-hint') || '';
+  hint.style.cssText = 'font-size: 0.76rem; color: #6c63ff; background: rgba(108,99,255,0.08); border-radius: 6px; padding: 6px 10px; margin-top: 6px; line-height: 1.4;';
+  row.parentNode.insertBefore(hint, row.nextSibling);
+}
+
 function showSettings() {
   document.getElementById('settingsOverlay').classList.add('visible');
   document.getElementById('settingsSheetsUrl').value = getSheetsUrl();
+  document.getElementById('settingsAuthToken').value = getAuthToken();
   document.getElementById('settingsPredoUrl').value = getPredoUrl();
   document.getElementById('settingsPredoToken').value = getPredoToken();
   document.getElementById('settingsApiKey').value = getApiKey();
@@ -3380,21 +3409,35 @@ function updateLastSyncedDisplay() {
 }
 
 async function testSheetsConnection() {
-  const url = document.getElementById('settingsSheetsUrl').value.trim();
-  if (!url) {
-    document.getElementById('sheetsTestResult').textContent = '❌ Please enter a URL';
-    return;
-  }
   const result = document.getElementById('sheetsTestResult');
-  result.textContent = '⏳ Testing...';
+  const url = document.getElementById('settingsSheetsUrl').value.trim();
+  if (!url) { result.textContent = '❌ Enter the Deployment URL first'; result.style.color = '#ef4444'; return; }
+  const token = document.getElementById('settingsAuthToken').value.trim();
+  result.style.color = '#888';
+  result.textContent = '⏳ Testing read…';
   try {
-    const resp = await fetch(url, { method: 'GET' });
-    const data = await resp.json();
-    if (data.ok) {
-      result.textContent = '✅ Connection successful';
+    // 1) Read test (GET — always open).
+    const sep = url.includes('?') ? '&' : '?';
+    const readResp = await fetch(url + sep + '_=' + Date.now(), { method: 'GET', cache: 'no-store' });
+    const readData = await readResp.json();
+    if (!readData.ok) { result.textContent = '❌ Connected, but the API returned an error — check the URL'; result.style.color = '#ef4444'; return; }
+
+    // 2) Write/auth test (POST — this is what create/delete actually use).
+    result.textContent = '⏳ Testing write & auth…';
+    const body = { action: 'saveConfig', key: '_authcheck', value: new Date().toISOString() };
+    if (token) body.token = token;
+    const writeResp = await fetch(url, { method: 'POST', body: JSON.stringify(body) });
+    const writeData = await writeResp.json();
+    if (writeData.ok) {
+      result.textContent = '✅ Connected and authorised — create & delete will sync';
       result.style.color = '#22c55e';
+    } else if ((writeData.error || '').toLowerCase().indexOf('unauth') !== -1) {
+      result.textContent = token
+        ? '❌ Token rejected — it doesn’t match the backend AUTH_TOKEN exactly'
+        : '❌ This backend needs an Auth Token — enter it above (same value as on your other device)';
+      result.style.color = '#ef4444';
     } else {
-      result.textContent = '❌ API returned an error';
+      result.textContent = '❌ Write failed: ' + (writeData.error || 'unknown error');
       result.style.color = '#ef4444';
     }
   } catch(e) {
@@ -3582,6 +3625,10 @@ function saveSettings() {
   const deepseekKey = document.getElementById('settingsDeepSeekKey').value.trim();
   const provider = document.getElementById('settingsProvider').value;
   if (url.startsWith('https://script.google.com/')) setSheetsUrl(url);
+  const authToken = document.getElementById('settingsAuthToken').value.trim();
+  setAuthToken(authToken);
+  authPromptShown = false;
+  writeAuthFailed = false; // re-evaluate on the next write with the new token
   const predoUrl = document.getElementById('settingsPredoUrl').value.trim();
   if (predoUrl.startsWith('http')) setPredoUrl(predoUrl); else if (!predoUrl) setPredoUrl('');
   const predoToken = document.getElementById('settingsPredoToken').value.trim();
@@ -4756,13 +4803,13 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <!-- Floating Sync Badge -->
-<div id="syncBadge" onclick="showSheetsUrlPrompt()" style="
+<div id="syncBadge" onclick="showSettings()" style="
   position:fixed; top:10px; left:50%; transform:translateX(-50%);
   background:white; border-radius:99px; padding:6px 14px;
   font-size:0.75rem; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.15);
   z-index:60; cursor:pointer; opacity:0.9; transition:opacity 0.2s;
   display:flex; align-items:center; gap:6px; white-space:nowrap;
-" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.9'" title="Click to update Sheets URL">
+" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.9'" title="Open sync settings">
   <span id="syncBadgeDot" style="width:8px; height:8px; border-radius:50%; background:#aaa;"></span>
   <span id="syncBadgeText">◌ Loading…</span>
 </div>
@@ -4778,7 +4825,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.3.3</a><br>
+  <a href="https://github.com/levelone-co/to-do/" target="_blank" rel="noopener">v1.3.4</a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
