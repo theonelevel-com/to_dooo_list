@@ -2387,6 +2387,7 @@ function render() {
   renderSections();
   updateProgress();
   setupDragDrop();
+  emitDashBadge();
 }
 
 function setupDragDrop() {
@@ -3884,21 +3885,25 @@ function dashLlm(payload) {
   });
 }
 
-// Get the Anthropic key OUT of browser storage: inside dash dooo the relay
-// supersedes any locally-stored key, so purge it on load.
-if (IN_DASH) { try { localStorage.removeItem(API_KEY_STORAGE); } catch (e) {} }
+// Get the API keys OUT of browser storage: inside dash dooo both providers
+// are proxied server-side by the shell relay, so purge any stored keys.
+if (IN_DASH) {
+  try {
+    localStorage.removeItem(API_KEY_STORAGE);
+    localStorage.removeItem(DEEPSEEK_KEY_STORAGE);
+  } catch (e) {}
+}
 
 // Returns 'anthropic' | 'deepseek' | '' (none configured).
 // Honours the saved preference when that provider has a key, else falls back
 // to whichever key is present (Claude first).
 function getActiveProvider() {
   const pref = getProviderPref();
-  // Inside dash dooo, Claude is always available via the server-side relay
-  // (no local key needed). Only defer to DeepSeek if explicitly preferred
-  // and configured.
+  // Inside dash dooo, both providers run via the server-side relay (no local
+  // key needed). DeepSeek is the default (cheaper); Claude only when chosen.
   if (IN_DASH) {
-    if (pref === 'deepseek' && getDeepSeekKey()) return 'deepseek';
-    return 'anthropic';
+    if (pref === 'anthropic') return 'anthropic';
+    return 'deepseek';
   }
   if (pref === 'anthropic' && getApiKey()) return 'anthropic';
   if (pref === 'deepseek' && getDeepSeekKey()) return 'deepseek';
@@ -3995,7 +4000,7 @@ async function callAnthropic(messages) {
 
   // Inside dash dooo: relay the call server-side. The key never lives here.
   if (IN_DASH) {
-    const data = await dashLlm(payload);
+    const data = await dashLlm({ provider: 'anthropic', body: payload });
     if (!data || !data.content) throw new Error(data?.error?.message || 'AI relay returned no content');
     return data.content[0].text;
   }
@@ -4025,17 +4030,29 @@ async function callAnthropic(messages) {
 
 async function callDeepSeek(messages) {
   // DeepSeek is OpenAI-compatible: system prompt is the first message.
+  const body = {
+    model: 'deepseek-chat',
+    max_tokens: 1024,
+    messages: [{ role: 'system', content: buildSystemPrompt() }, ...messages]
+  };
+
+  // Inside dash dooo: relay server-side. The key never lives here.
+  if (IN_DASH) {
+    const data = await dashLlm({ provider: 'deepseek', body });
+    if (!data || !data.choices) throw new Error(data?.error?.message || 'AI relay returned no content');
+    return data.choices[0].message.content;
+  }
+
+  // Standalone: direct call using a locally-entered DeepSeek key, if present.
+  const key = getDeepSeekKey();
+  if (!key) throw new Error('DeepSeek is available when you open to dooo via dash dooo.');
   const resp = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + getDeepSeekKey()
+      'Authorization': 'Bearer ' + key
     },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      max_tokens: 1024,
-      messages: [{ role: 'system', content: buildSystemPrompt() }, ...messages]
-    })
+    body: JSON.stringify(body)
   });
 
   if (!resp.ok) {
@@ -4384,6 +4401,21 @@ function getPending() {
 
 function getDone() {
   return getAllTodos().filter(i => i.done);
+}
+
+// Tell the dash dooo shell how many pending tasks are due today, for the
+// sidebar count badge. No-op when not embedded in the dashboard.
+function emitDashBadge() {
+  if (!IN_DASH) return;
+  try {
+    const d = new Date();
+    const today =
+      d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+    const count = getPending().filter(i => i.dueDate === today).length;
+    window.parent.postMessage({ v: 1, type: 'badge', count: count }, '*');
+  } catch (e) {}
 }
 
 function todoListText(items) {
