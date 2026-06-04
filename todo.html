@@ -3853,11 +3853,53 @@ function setProviderPref(p) {
   try { localStorage.setItem(AI_PROVIDER_STORAGE, p); } catch(e) {}
 }
 
+// ── dash dooo relay bridge ─────────────────────────────────────────────────
+// When to dooo runs inside the dash dooo shell, Claude calls are proxied
+// server-side by the shell (the Anthropic key lives in a Worker secret and
+// never touches this browser). Detect the embed and relay Messages requests
+// up to the shell via postMessage.
+const IN_DASH = (function () {
+  try { return !!window.parent && window.parent !== window; } catch (e) { return false; }
+})();
+
+const _dashLlmPending = {};
+let _dashLlmSeq = 0;
+window.addEventListener('message', function (e) {
+  const m = e.data;
+  if (!m || m.v !== 1 || m.type !== 'llm-result') return;
+  const cb = _dashLlmPending[m.id];
+  if (!cb) return;
+  delete _dashLlmPending[m.id];
+  if (m.ok) cb.resolve(m.data);
+  else cb.reject(new Error(m.error || ('AI relay error ' + (m.status || '?'))));
+});
+function dashLlm(payload) {
+  return new Promise(function (resolve, reject) {
+    const id = 'todo-' + (++_dashLlmSeq) + '-' + Date.now();
+    _dashLlmPending[id] = { resolve: resolve, reject: reject };
+    window.parent.postMessage({ v: 1, type: 'llm', id: id, payload: payload }, '*');
+    setTimeout(function () {
+      if (_dashLlmPending[id]) { delete _dashLlmPending[id]; reject(new Error('AI relay timeout')); }
+    }, 60000);
+  });
+}
+
+// Get the Anthropic key OUT of browser storage: inside dash dooo the relay
+// supersedes any locally-stored key, so purge it on load.
+if (IN_DASH) { try { localStorage.removeItem(API_KEY_STORAGE); } catch (e) {} }
+
 // Returns 'anthropic' | 'deepseek' | '' (none configured).
 // Honours the saved preference when that provider has a key, else falls back
 // to whichever key is present (Claude first).
 function getActiveProvider() {
   const pref = getProviderPref();
+  // Inside dash dooo, Claude is always available via the server-side relay
+  // (no local key needed). Only defer to DeepSeek if explicitly preferred
+  // and configured.
+  if (IN_DASH) {
+    if (pref === 'deepseek' && getDeepSeekKey()) return 'deepseek';
+    return 'anthropic';
+  }
   if (pref === 'anthropic' && getApiKey()) return 'anthropic';
   if (pref === 'deepseek' && getDeepSeekKey()) return 'deepseek';
   if (getApiKey()) return 'anthropic';
@@ -3944,20 +3986,32 @@ async function callClaude(userText) {
 }
 
 async function callAnthropic(messages) {
+  const payload = {
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: buildSystemPrompt(),
+    messages
+  };
+
+  // Inside dash dooo: relay the call server-side. The key never lives here.
+  if (IN_DASH) {
+    const data = await dashLlm(payload);
+    if (!data || !data.content) throw new Error(data?.error?.message || 'AI relay returned no content');
+    return data.content[0].text;
+  }
+
+  // Standalone: direct browser call using a locally-entered key, if present.
+  const key = getApiKey();
+  if (!key) throw new Error('Claude is available when you open to dooo via dash dooo.');
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': getApiKey(),
+      'x-api-key': key,
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true'
     },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: buildSystemPrompt(),
-      messages
-    })
+    body: JSON.stringify(payload)
   });
 
   if (!resp.ok) {
