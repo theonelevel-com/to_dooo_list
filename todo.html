@@ -1993,6 +1993,22 @@ function saveSectionsOrder() {
 let sectionNames = loadSectionNames();
 let SECTIONS_ORDER = loadSectionsOrder();
 
+// True when the current section layout is exactly the built-in default. Used
+// to avoid a fresh / storage-partitioned instance clobbering a real layout on
+// the Sheet by auto-seeding defaults.
+function isDefaultSectionConfig() {
+  const defOrder = ['one', 'two', 'shared'];
+  const orderDefault =
+    SECTIONS_ORDER.length === defOrder.length &&
+    SECTIONS_ORDER.every((k, i) => k === defOrder[i]);
+  const defNames = { one: 'Section 1', two: 'Section 2', shared: 'Shared' };
+  const nameKeys = Object.keys(sectionNames);
+  const namesDefault =
+    nameKeys.length === Object.keys(defNames).length &&
+    nameKeys.every((k) => sectionNames[k] === defNames[k]);
+  return orderDefault && namesDefault;
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 // Reserved hidden section for soft-deleted items (tombstones). Excluded from
@@ -4727,8 +4743,16 @@ async function loadSectionNamesFromSheet() {
         return;
       }
     }
-    console.log('[Config] No sections config on sheet yet — pushing current local values');
-    pushSectionsConfigToSheet();
+    // Only seed the Sheet from a CUSTOMISED instance. A fresh or storage-
+    // partitioned instance (e.g. to dooo inside the dash dooo iframe) holds
+    // only the built-in defaults — auto-pushing those would clobber a real
+    // layout that simply hasn't been pulled yet.
+    if (!isDefaultSectionConfig()) {
+      console.log('[Config] No sections config on sheet — seeding from this customised instance');
+      pushSectionsConfigToSheet();
+    } else {
+      console.log('[Config] No sections config on sheet and local layout is default — not seeding (avoids clobber)');
+    }
   } catch(e) {
     console.warn('[Config] Load failed (non-critical):', e.message);
   }
