@@ -1738,7 +1738,13 @@ const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
 const SHEETS_URL_STORAGE = 'todo_sheets_url_v1';
 const LAST_SYNC_TIME_KEY = 'todo_last_sync_time_v1';
 
+// _dashSheetsUrl / _dashAuthToken are set by requestDashConfig() when embedded.
+// Declared here so getSheetsUrl/getAuthToken can reference them; populated later.
+let _dashSheetsUrl = '';
+let _dashAuthToken = '';
+
 function getSheetsUrl() {
+  if (_dashSheetsUrl) return _dashSheetsUrl;
   try { return localStorage.getItem(SHEETS_URL_STORAGE) || ''; } catch(e) { return ''; }
 }
 
@@ -1753,6 +1759,7 @@ function setSheetsUrl(url) {
 const AUTH_TOKEN_STORAGE = 'todo_auth_token_v1';
 
 function getAuthToken() {
+  if (_dashAuthToken) return _dashAuthToken;
   try { return localStorage.getItem(AUTH_TOKEN_STORAGE) || ''; } catch(e) { return ''; }
 }
 
@@ -3910,6 +3917,29 @@ if (IN_DASH) {
   } catch (e) {}
 }
 
+// Request sheetsUrl + authToken from the dash dooo shell. The shell fetches
+// /api/embed-config (Access-gated) and returns the values so this iframe never
+// needs them in its partitioned localStorage.
+function requestDashConfig() {
+  return new Promise(function (resolve) {
+    if (!IN_DASH) { resolve({}); return; }
+    var id = 'to-cfg-' + Date.now();
+    var timer;
+    function handler(e) {
+      if (!e.data || e.data.v !== 1 || e.data.type !== 'config-result' || e.data.id !== id) return;
+      window.removeEventListener('message', handler);
+      clearTimeout(timer);
+      resolve(e.data.config || {});
+    }
+    window.addEventListener('message', handler);
+    timer = setTimeout(function () {
+      window.removeEventListener('message', handler);
+      resolve({});
+    }, 3000);
+    window.parent.postMessage({ v: 1, type: 'config-request', id: id, app: 'to' }, '*');
+  });
+}
+
 // Returns 'anthropic' | 'deepseek' | '' (none configured).
 // Honours the saved preference when that provider has a key, else falls back
 // to whichever key is present (Claude first).
@@ -4786,12 +4816,20 @@ render();
 initChat();
 updateKeyIndicator();
 
-// Then pull latest from Google Sheets in background, then cleanup again
-loadFromSheets().then(() => {
+// Then pull latest from Google Sheets in background.
+// When embedded in dash dooo, request sheetsUrl + authToken from the shell
+// first — localStorage is partitioned so standalone settings are invisible here.
+(async () => {
+  if (IN_DASH) {
+    const cfg = await requestDashConfig();
+    if (cfg.sheetsUrl) _dashSheetsUrl = cfg.sheetsUrl;
+    if (cfg.authToken) _dashAuthToken = cfg.authToken;
+  }
+  await loadFromSheets();
   cleanupCompletedItems();
   render();
-});
-loadSectionNamesFromSheet();
+  loadSectionNamesFromSheet();
+})();
 
 // ── Live refresh: keep devices in sync without a hard restart ──────────────────
 // Apps Script can't push, so we pull on focus + poll on an interval.
