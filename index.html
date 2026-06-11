@@ -4809,6 +4809,10 @@ async function pushSectionNamesToSheet() {
 
 // Apply dark mode before render to avoid flash
 initDarkMode();
+// Inside dash dooo the iframe's localStorage is partitioned/blocked, so the
+// app's own theme never sticks. dash's shell is dark, so force dark when
+// embedded for a consistent, persistent look.
+if (IN_DASH) document.body.classList.add('dark');
 
 // Render from local cache immediately (instant load)
 cleanupCompletedItems();
@@ -4828,7 +4832,9 @@ updateKeyIndicator();
   await loadFromSheets();
   cleanupCompletedItems();
   render();
-  loadSectionNamesFromSheet();
+  // Await so the sheet's section layout is fully applied (its internal render)
+  // before init finishes — un-awaited it could land after other renders.
+  await loadSectionNamesFromSheet();
 })();
 
 // ── Live refresh: keep devices in sync without a hard restart ──────────────────
