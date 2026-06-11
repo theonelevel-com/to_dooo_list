@@ -1735,6 +1735,11 @@ const APP_VERSION = '0.3.4'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
+// Last-write-wins clock for the sections layout. Stamped on every local
+// rename/reorder push; compared against the sheet's `ts` on load so a local
+// change is never clobbered by a stale sheet (and a newer sheet — e.g. an
+// edit on another device — still wins).
+const SECTIONS_TS_KEY = 'todo_sections_ts_v1';
 const SHEETS_URL_STORAGE = 'todo_sheets_url_v1';
 const LAST_SYNC_TIME_KEY = 'todo_last_sync_time_v1';
 
@@ -4742,6 +4747,18 @@ async function loadSectionNamesFromSheet() {
       if (data.ok && data.config && data.config.sections) {
         const cfg = data.config.sections;
         if (cfg && typeof cfg === 'object') {
+          // Last-write-wins: if our local layout is newer than the sheet's
+          // (a recent rename whose push may not have landed), DON'T overwrite
+          // it — keep local and re-push to repair the sheet. Otherwise the
+          // sheet (same or newer, e.g. another device) is authoritative.
+          const localTs = Number(localStorage.getItem(SECTIONS_TS_KEY) || 0);
+          const sheetTs = Number(cfg.ts || 0);
+          if (localTs && sheetTs < localTs) {
+            console.warn('[Config] local sections newer than sheet (local', localTs, '> sheet', sheetTs, ') — keeping local, re-pushing');
+            pushSectionsConfigToSheet();
+            render();
+            return;
+          }
           if (cfg.names && typeof cfg.names === 'object') {
             sectionNames = Object.assign({}, sectionNames, cfg.names);
           }
@@ -4752,6 +4769,9 @@ async function loadSectionNamesFromSheet() {
             try { localStorage.setItem(SECTIONS_ORDER_KEY, JSON.stringify(SECTIONS_ORDER)); } catch(e) {}
           }
           try { localStorage.setItem(SECTION_NAMES_KEY, JSON.stringify(sectionNames)); } catch(e) {}
+          // Adopt the sheet's clock so later loads compare correctly. Legacy
+          // sheets with no ts stay at 0 — the next local rename upgrades them.
+          try { localStorage.setItem(SECTIONS_TS_KEY, String(sheetTs)); } catch(e) {}
           render();
           return;
         }
@@ -4790,7 +4810,12 @@ async function loadSectionNamesFromSheet() {
 
 async function pushSectionsConfigToSheet() {
   if (!getSheetsUrl()) return;
-  const payload = { names: sectionNames, order: SECTIONS_ORDER };
+  // Stamp a fresh clock and persist it locally BEFORE the network call, so
+  // even if the push fails the local copy is marked newer than the sheet and
+  // the next load won't overwrite it (it'll re-push to repair instead).
+  const ts = Date.now();
+  try { localStorage.setItem(SECTIONS_TS_KEY, String(ts)); } catch(e) {}
+  const payload = { names: sectionNames, order: SECTIONS_ORDER, ts };
   try {
     console.log('[Config] Pushing sections config:', payload);
     const resp = await postToSheet({ action: 'saveConfig', key: 'sections', value: JSON.stringify(payload) });
