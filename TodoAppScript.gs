@@ -270,6 +270,19 @@ function doPost(e) {
     if (action === 'saveConfig') {
       const { key, value } = body;
       if (!key) return cors({ ok: false, error: 'Missing config key' });
+      // Sections layout uses timestamped last-write-wins (app v0.3.4+).
+      // Once the stored value carries a ts, refuse writes that have no ts
+      // or an older ts — stale app builds (pre-v0.3.4) otherwise clobber
+      // the real layout on every 30s poll.
+      if (key === 'sections') {
+        let incomingTs = 0;
+        try { incomingTs = Number(JSON.parse(value).ts) || 0; } catch (ex) {}
+        let storedTs = 0;
+        try { storedTs = Number(JSON.parse(getConfigValue(key)).ts) || 0; } catch (ex) {}
+        if (storedTs && incomingTs < storedTs) {
+          return cors({ ok: false, error: 'stale sections write rejected (ts ' + incomingTs + ' < stored ' + storedTs + ')' });
+        }
+      }
       setConfigValue(key, value);
       return cors({ ok: true, saved: key });
     }
