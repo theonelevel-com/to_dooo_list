@@ -1,8 +1,8 @@
 {
-  "name": "To Do",
-  "short_name": "To Do",
+  "name": "to dooo",
+  "short_name": "to dooo",
   "description": "Shared task management",
-  "start_url": "./todo.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f0f2f5",
   "theme_color": "#16324F",
