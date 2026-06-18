@@ -2253,8 +2253,13 @@ async function loadFromSheets() {
       setLastSyncTime();
       syncRetryCount = 0; // Reset retry count on success
 
-      // Auto-save section names on first successful sync
-      pushSectionNamesToSheet();
+      // NOTE: do NOT push section config here. This runs on every 30s sync, so
+      // it was rewriting the Config 'sections' cell twice a minute — and worse,
+      // the dash-embedded instance (which boots with DEFAULT section names from
+      // its empty partitioned storage) clobbered the user's real names every
+      // poll. Section config is pushed only on explicit rename/reorder/add/
+      // delete (saveSectionNames/saveSectionsOrder) and seeded once, guarded, by
+      // loadSectionNamesFromSheet().
 
       // Reads are open even when writes are unauthorised — don't paint green and
       // mask a blocked write. Stay in the error state until a write succeeds.
