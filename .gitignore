@@ -8,7 +8,8 @@ clasp-deploy/
 # editor / session tooling
 .claude/
 
-# local scratch screenshots (not part of the repo)
-example/to dooo v1.1.4.png
-example/to dooo v1.1.5.png
+# local scratch screenshots (not part of the repo).
+# The user's dated grabs are named "To Do v*"; the one canonical tracked
+# screenshot is "to dooo v1.1.png", so this prefix glob leaves it alone.
+example/To Do *
 .wrangler/
