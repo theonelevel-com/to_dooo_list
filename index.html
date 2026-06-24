@@ -1618,19 +1618,19 @@
       </div>
       <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
         <div style="display: flex; align-items: center; gap: 6px;">
-          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Pre-do Endpoint URL</label>
-          <button type="button" onclick="toggleHint(this)" data-hint="Items tagged → pre-do POST their JSON here on first save, for automated processing. Leave blank to disable." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
+          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">pre-dooo Endpoint URL</label>
+          <button type="button" onclick="toggleHint(this)" data-hint="Items tagged → pre-dooo POST their JSON here on first save, for automated processing. Leave blank to disable." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
-        <input id="settingsPredoUrl" type="url" placeholder="https://… (optional — receives → pre-do items)" style="
+        <input id="settingsPredoUrl" type="url" placeholder="https://… (optional — receives → pre-dooo items)" style="
           width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
           font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
         ">
-        <div style="font-size: 0.76rem; margin-top: 6px; color: #aaa;">Tag an item <b>→ pre-do</b> to send it here automatically. Items returning from pre-do use <b>← pre-do</b>.</div>
+        <div style="font-size: 0.76rem; margin-top: 6px; color: #aaa;">Tag an item <b>→ pre-dooo</b> to send it here automatically. Items returning from pre-dooo use <b>← pre-dooo</b>.</div>
         <div style="display: flex; align-items: center; gap: 6px; margin-top: 14px;">
-          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Pre-do Token</label>
-          <button type="button" onclick="toggleHint(this)" data-hint="Sent in the POST body as 'token' to authenticate with the Pre-do endpoint. Leave blank to reuse the Sheets Auth Token." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
+          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">pre-dooo Token</label>
+          <button type="button" onclick="toggleHint(this)" data-hint="Sent in the POST body as 'token' to authenticate with the pre-dooo endpoint. Leave blank to reuse the Sheets Auth Token." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
-        <input id="settingsPredoToken" type="password" placeholder="(optional — shared secret for Pre-do)" style="
+        <input id="settingsPredoToken" type="password" placeholder="(optional — shared secret for pre-dooo)" style="
           width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
           font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
         ">
@@ -1791,8 +1791,8 @@ function postToSheet(body) {
 }
 
 // ── Pre-do integration ───────────────────────────────────────────────────────
-// Items tagged "→ pre-do" POST their JSON to this endpoint on first save, for
-// automated processing. Items coming back from pre-do are tagged "← pre-do".
+// Items tagged "→ pre-dooo" POST their JSON to this endpoint on first save, for
+// automated processing. Items coming back from pre-dooo are tagged "← pre-dooo".
 // Endpoint is entered at runtime (Settings) — kept out of the repo, like the
 // Sheets URL. No custom headers, so the POST stays CORS-preflight-free.
 const PREDO_URL_STORAGE = 'todo_predo_url_v1';
@@ -1918,17 +1918,17 @@ async function sendItemToPredo(item) {
     .catch(e => console.warn('Pre-do POST failed:', e.message));
 }
 
-// Warn before the "→ pre-do" tag is applied — it triggers an external automated
-// action (POST to the Pre-do endpoint) on save. Returns true if the user confirms.
+// Warn before the "→ pre-dooo" tag is applied — it triggers an external automated
+// action (POST to the pre-dooo endpoint) on save. Returns true if the user confirms.
 function confirmPredoTag() {
-  const dest = getPredoUrl() ? 'your Pre-do endpoint' : 'Pre-do once an endpoint is set in Settings';
-  const ok = confirm('⚠️ "→ pre-do" triggers an external action.\n\nOn save, this item will be sent to ' + dest + ' for automated processing.\n\nAdd the → pre-do tag?');
+  const dest = getPredoUrl() ? 'your pre-dooo endpoint' : 'pre-dooo once an endpoint is set in Settings';
+  const ok = confirm('⚠️ "→ pre-dooo" triggers an external action.\n\nOn save, this item will be sent to ' + dest + ' for automated processing.\n\nAdd the → pre-dooo tag?');
   // Warm up location now so the permission prompt resolves and caches before save.
   if (ok && getPredoUrl()) { getPredoLocation().catch(() => {}); }
   return ok;
 }
 
-// Stamp pre-do notes + trigger the send. Idempotent: a "Sent to pre-do" note
+// Stamp pre-dooo notes + trigger the send. Idempotent: a "Sent to pre-dooo" note
 // guards against re-sending on subsequent saves. Returns true if it changed the
 // item (so the caller can bump updatedAt).
 function processPredoTags(item) {
@@ -1938,21 +1938,21 @@ function processPredoTags(item) {
   const stamp = new Date().toISOString();
   let changed = false;
 
-  // → pre-do : send to pre-do on first save
-  if (item.tags.includes('→ pre-do') && !has(/sent to pre-do/i)) {
+  // → pre-dooo : send to pre-dooo on first save
+  if (item.tags.includes('→ pre-dooo') && !has(/sent to pre-dooo/i)) {
     if (getPredoUrl()) {
       sendItemToPredo(item);
-      notes.push({ text: '→ Sent to pre-do', date: stamp });
+      notes.push({ text: '→ Sent to pre-dooo', date: stamp });
       changed = true;
-    } else if (!has(/marked for pre-do/i)) {
-      notes.push({ text: '→ Marked for pre-do (set the endpoint in Settings to send)', date: stamp });
+    } else if (!has(/marked for pre-dooo/i)) {
+      notes.push({ text: '→ Marked for pre-dooo (set the endpoint in Settings to send)', date: stamp });
       changed = true;
     }
   }
 
-  // ← pre-do : received from pre-do
-  if (item.tags.includes('← pre-do') && !has(/from pre-do/i)) {
-    notes.push({ text: '← From pre-do', date: stamp });
+  // ← pre-dooo : received from pre-dooo
+  if (item.tags.includes('← pre-dooo') && !has(/from pre-dooo/i)) {
+    notes.push({ text: '← From pre-dooo', date: stamp });
     changed = true;
   }
 
@@ -2779,16 +2779,24 @@ function moveItem(fromSection, id, toSection) {
 
 // ── Tag Picker ───────────────────────────────────────────────────────────────
 
-// "← pre-do" is applied programmatically when a task arrives FROM the pre-do app —
-// it's intentionally not a selectable preset (only "→ pre-do" is user-applied).
-const PRESET_TAGS = ['urgent', 'waiting', 'low', '→ pre-do'];
+// "← pre-dooo" is applied programmatically when a task arrives FROM the pre-dooo app —
+// it's intentionally not a selectable preset (only "→ pre-dooo" is user-applied).
+const PRESET_TAGS = ['urgent', 'waiting', 'low', '→ pre-dooo'];
+
+// The preset tags actually offered in the picker. The "→ pre-dooo" tag only
+// makes sense — and is only shown — when a pre-dooo endpoint is configured
+// (token is optional; it falls back to the Sheets auth token), so it's hidden
+// until then.
+function availablePresetTags() {
+  return getPredoUrl() ? PRESET_TAGS : PRESET_TAGS.filter(t => t !== '→ pre-dooo');
+}
 
 // Maps a tag to its CSS modifier class (shared by row tags + task-card chips).
 function tagClass(tag) {
   if (tag === 'urgent') return 'urgent';
   if (tag === 'note') return 'note';
-  if (tag === '→ pre-do') return 'predo-to';
-  if (tag === '← pre-do') return 'predo-from';
+  if (tag === '→ pre-dooo') return 'predo-to';
+  if (tag === '← pre-dooo') return 'predo-from';
   return '';
 }
 
@@ -2805,7 +2813,7 @@ function toggleTagPicker(wrapEl, section, id) {
   const item = findItem(section, id);
   const currentTags = item && item.tags ? item.tags : [];
 
-  PRESET_TAGS.forEach(t => {
+  availablePresetTags().forEach(t => {
     const btn = document.createElement('button');
     btn.className = 'tag-option';
     const hasTag = currentTags.includes(t);
@@ -3206,12 +3214,12 @@ function renderTcTags() {
 
   const preset = document.getElementById('tcPreset');
   preset.innerHTML = '';
-  PRESET_TAGS.filter(t => !taskCardContext.tags.includes(t)).forEach(t => {
+  availablePresetTags().filter(t => !taskCardContext.tags.includes(t)).forEach(t => {
     const btn = document.createElement('button');
     btn.className = 'tc-preset-btn';
     btn.textContent = '+ ' + t;
     btn.addEventListener('click', () => {
-      if (t === '→ pre-do' && !confirmPredoTag()) return;
+      if (t === '→ pre-dooo' && !confirmPredoTag()) return;
       taskCardContext.tags.push(t);
       renderTcTags();
     });
@@ -3226,7 +3234,7 @@ function renderTcTags() {
       e.preventDefault();
       const val = custom.value.trim().toLowerCase();
       if (val && !taskCardContext.tags.includes(val)) {
-        if (val === '→ pre-do' && !confirmPredoTag()) return;
+        if (val === '→ pre-dooo' && !confirmPredoTag()) return;
         taskCardContext.tags.push(val);
         renderTcTags();
       }
@@ -3320,18 +3328,18 @@ function saveTaskCard() {
     document.getElementById('tcNoteInput').value = '';
   }
 
-  // Save-time guard: if "→ pre-do" is set and this save would actually fire the
+  // Save-time guard: if "→ pre-dooo" is set and this save would actually fire the
   // external send (not already sent), confirm before triggering the action.
-  if (ctx.tags.includes('→ pre-do')) {
+  if (ctx.tags.includes('→ pre-dooo')) {
     let alreadySent = false;
     if (ctx.mode !== 'create') {
       const existing = findItem(ctx.section, ctx.id);
       const eNotes = existing ? parseNotes(existing.notes) : [];
-      alreadySent = eNotes.some(n => /sent to pre-do/i.test(n.text || ''));
+      alreadySent = eNotes.some(n => /sent to pre-dooo/i.test(n.text || ''));
     }
     if (!alreadySent) {
-      const dest = getPredoUrl() ? 'your Pre-do endpoint' : 'Pre-do (set the endpoint in Settings to actually send)';
-      if (!confirm('⚠️ This item is tagged "→ pre-do".\n\nSaving will send it to ' + dest + ' for automated processing.\n\nSave and send?')) return;
+      const dest = getPredoUrl() ? 'your pre-dooo endpoint' : 'pre-dooo (set the endpoint in Settings to actually send)';
+      if (!confirm('⚠️ This item is tagged "→ pre-dooo".\n\nSaving will send it to ' + dest + ' for automated processing.\n\nSave and send?')) return;
     }
   }
 
@@ -3346,7 +3354,7 @@ function saveTaskCard() {
       updatedAt: now
     };
     state[newSection].push(newItem);
-    // → pre-do: send on first save; ← pre-do: stamp a note
+    // → pre-dooo: send on first save; ← pre-dooo: stamp a note
     processPredoTags(newItem);
   } else {
     const item = findItem(ctx.section, ctx.id);
@@ -3362,7 +3370,7 @@ function saveTaskCard() {
       if (!Array.isArray(state[newSection])) state[newSection] = [];
       state[newSection].push(item);
     }
-    // → pre-do: send on first save; ← pre-do: stamp a note
+    // → pre-dooo: send on first save; ← pre-dooo: stamp a note
     processPredoTags(item);
   }
   saveState();
@@ -4186,8 +4194,8 @@ function parseClaudeResponse(raw) {
         let tags = [];
         if (Array.isArray(act.tags)) tags = act.tags.slice();
         else if (typeof act.tag === 'string' && act.tag) tags = act.tag.split(',').map(s => s.trim()).filter(Boolean);
-        // → pre-do triggers an external automated action — confirm before the agent applies it.
-        if (tags.includes('→ pre-do') && !confirmPredoTag()) tags = tags.filter(t => t !== '→ pre-do');
+        // → pre-dooo triggers an external automated action — confirm before the agent applies it.
+        if (tags.includes('→ pre-dooo') && !confirmPredoTag()) tags = tags.filter(t => t !== '→ pre-dooo');
         const newItem = { id, text: act.text, done: false, tags, action: null, createdAt: new Date().toISOString(), dueDate: act.dueDate || null, completedAt: null, notes: null, updatedAt: new Date().toISOString() };
         state[act.section].push(newItem);
         processPredoTags(newItem);
@@ -4764,6 +4772,13 @@ function toggleDarkMode() {
   document.body.classList.toggle('dark');
   const isDark = document.body.classList.contains('dark');
   localStorage.setItem(DARK_KEY, isDark);
+  // Embedded in dash: our localStorage is partitioned (wiped on iOS reload),
+  // so also persist the choice in the shell's first-party store via the relay.
+  if (IN_DASH) {
+    try {
+      window.parent.postMessage({ v: 1, type: 'pref-set', key: 'theme', value: isDark ? 'dark' : 'light' }, '*');
+    } catch (e) {}
+  }
   updateDarkToggle();
 }
 
@@ -4875,8 +4890,9 @@ async function pushSectionNamesToSheet() {
 // Apply dark mode before render to avoid flash
 initDarkMode();
 // Inside dash dooo the iframe's localStorage is partitioned/blocked, so the
-// app's own theme never sticks. dash's shell is dark, so force dark when
-// embedded for a consistent, persistent look.
+// app's own theme never sticks. Default to dark immediately (dash's shell is
+// dark — avoids a light flash); the real saved theme is hydrated from the
+// shell's first-party store once requestDashConfig resolves (see init IIFE).
 if (IN_DASH) document.body.classList.add('dark');
 
 // Render from local cache immediately (instant load)
@@ -4893,6 +4909,13 @@ updateKeyIndicator();
     const cfg = await requestDashConfig();
     if (cfg.sheetsUrl) _dashSheetsUrl = cfg.sheetsUrl;
     if (cfg.authToken) _dashAuthToken = cfg.authToken;
+    // Hydrate the saved theme from the shell's first-party store (iOS wipes
+    // our own partitioned localStorage). No stored pref → keep the dark
+    // default applied above.
+    if (cfg.prefs && cfg.prefs.theme) {
+      document.body.classList.toggle('dark', cfg.prefs.theme === 'dark');
+      updateDarkToggle();
+    }
   }
   await loadFromSheets();
   await retryPendingArchive();
