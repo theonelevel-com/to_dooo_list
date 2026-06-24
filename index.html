@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Canonical-origin guard: funnel the raw Pages host → the custom domain so
+     PWA installs/links land on to.dooolist.com. Top-level only (never inside
+     the dash iframe); preview deploys (<hash>.to-dooo-list.pages.dev) untouched. -->
+<script>
+  if (window.top === window.self && location.hostname === "to-dooo-list.pages.dev") {
+    location.replace("https://to.dooolist.com" + location.pathname + location.search + location.hash);
+  }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#16324F">
 <meta name="mobile-web-app-capable" content="yes">
