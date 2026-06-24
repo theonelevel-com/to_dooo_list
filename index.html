@@ -1702,10 +1702,6 @@
         <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Version</label>
         <div style="font-size: 0.9rem; margin-top: 6px; display: flex; justify-content: space-between; align-items: center;">
           <span id="versionLabel"></span>
-          <button onclick="checkForUpdates()" style="
-            border: 1px solid #6c63ff; background: none; color: #6c63ff; border-radius: 4px;
-            padding: 4px 8px; font-size: 0.75rem; cursor: pointer; font-weight: 600;
-          ">Check for updates</button>
         </div>
       </div>
     </div>
@@ -1731,7 +1727,7 @@ function findItemById(sec, id) {
   return state[sec].find(i => i.id === id);
 }
 
-const APP_VERSION = '0.3.5'; // Increment when deploying
+const APP_VERSION = '0.3.6'; // Increment when deploying
 const STORAGE_KEY  = 'todo_app_data_v1';
 const SECTION_NAMES_KEY = 'todo_section_names_v1';
 const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
@@ -3736,58 +3732,6 @@ function saveSettings() {
   updateKeyIndicator();
 }
 
-function checkForUpdates() {
-  const msg = `You're on v${APP_VERSION}. Latest release available at: https://github.com/levelone-co/to_dooo_list/releases`;
-  alert(msg);
-}
-
-// ── GitHub Update Checker ─────────────────────────────────────────────────────
-
-async function checkGitHubForUpdates() {
-  try {
-    const resp = await fetch('https://api.github.com/repos/levelone-co/to_dooo_list/releases/latest');
-    if (!resp.ok) throw new Error('Release check failed');
-    const data = await resp.json();
-    const latestVersion = data.tag_name.replace('v', '');
-    const current = APP_VERSION;
-    if (parseFloat(latestVersion) > parseFloat(current)) {
-      showUpdateBanner(latestVersion, data.html_url);
-    }
-  } catch(e) {
-    console.warn('Update check failed:', e.message);
-  }
-}
-
-function showUpdateBanner(version, releaseUrl) {
-  const banner = document.getElementById('updateBanner');
-  document.getElementById('updateMsg').textContent = `Update available: v${APP_VERSION} → v${version}`;
-  banner.dataset.releaseUrl = releaseUrl;
-  banner.style.display = 'flex';
-}
-
-function dismissUpdateBanner() {
-  document.getElementById('updateBanner').style.display = 'none';
-}
-
-function goToReleases() {
-  const url = document.getElementById('updateBanner').dataset.releaseUrl;
-  window.open(url, '_blank');
-}
-
-// Schedule daily update checks at 22:00 (10 PM)
-function scheduleNextDailyUpdateCheck() {
-  const now = new Date();
-  const nextCheck = new Date(now);
-  nextCheck.setHours(22, 0, 0, 0);
-  if (nextCheck <= now) nextCheck.setDate(nextCheck.getDate() + 1);
-  const msUntilCheck = nextCheck.getTime() - now.getTime();
-
-  setTimeout(() => {
-    checkGitHubForUpdates();
-    scheduleNextDailyUpdateCheck();
-  }, msUntilCheck);
-}
-
 document.getElementById('settingsOverlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settingsOverlay')) closeSettings();
 });
@@ -5026,24 +4970,18 @@ function scheduleNextMidnightCleanup() {
 }
 scheduleNextMidnightCleanup();
 
-// Check for updates on boot + daily at 22:00
-checkGitHubForUpdates();
-scheduleNextDailyUpdateCheck();
+// Stamp the version into the footer (it's parsed after this script, so wait
+// for DOMContentLoaded) — keeps it in lockstep with APP_VERSION, no hardcoding.
+window.addEventListener('DOMContentLoaded', () => {
+  const fv = document.getElementById('footerVersion');
+  if (fv) fv.textContent = `v${APP_VERSION}`;
+});
 
 // ── PWA Service Worker ───────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js').catch(e => console.warn('SW:', e.message));
 }
 </script>
-
-<!-- Update Banner -->
-<div id="updateBanner" class="update-banner" style="display:none;">
-  <span id="updateMsg"></span>
-  <div style="display:flex; gap:8px;">
-    <button onclick="goToReleases()">Download</button>
-    <button onclick="dismissUpdateBanner()">Dismiss</button>
-  </div>
-</div>
 
 <!-- Floating Sync Badge -->
 <div id="syncBadge" onclick="showSettings()" style="
@@ -5068,7 +5006,7 @@ if ('serviceWorker' in navigator) {
 <div class="footer">
   by <a href="https://www.levelone.co.za" target="_blank" rel="noopener">levelone.co.za</a>
   <span style="opacity:0.3; margin:0 6px;">|</span>
-  <a href="https://github.com/levelone-co/to_dooo_list/" target="_blank" rel="noopener">v0.3.5</a><br>
+  <a id="footerVersion" href="https://github.com/levelone-co/to_dooo_list/" target="_blank" rel="noopener"></a><br>
   <div class="btn-container">
     <a title="Support me on ko-fi.com" class="kofi-button" style="background-color: rgb(0, 0, 0);" href="https://ko-fi.com/H2H71XAPZJ" target="_blank" rel="noopener">
       <span class="kofitext"><img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi donations" class="kofiimg">Click here to buy me a coffee</span>
