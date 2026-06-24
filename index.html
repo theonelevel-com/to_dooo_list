@@ -1741,7 +1741,8 @@ const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
 // edit on another device — still wins).
 const SECTIONS_TS_KEY = 'todo_sections_ts_v1';
 const SHEETS_URL_STORAGE = 'todo_sheets_url_v1';
-const LAST_SYNC_TIME_KEY = 'todo_last_sync_time_v1';
+const LAST_SYNC_TIME_KEY    = 'todo_last_sync_time_v1';
+const PENDING_ARCHIVE_KEY   = 'todo_pending_archive_v1';
 
 // _dashSheetsUrl / _dashAuthToken are set by requestDashConfig() when embedded.
 // Declared here so getSheetsUrl/getAuthToken can reference them; populated later.
@@ -2290,14 +2291,28 @@ async function loadFromSheets() {
   return false;
 }
 
-// Push full state to Sheets (debounced)
+// Push changed items to Sheets (incremental — only items modified since last sync)
 async function pushToSheets() {
   if (!getSheetsUrl()) { setSyncStatus('setup'); return; }
-  syncPending = false; // we're about to push the latest local state
+  syncPending = false;
   setSyncStatus('syncing');
   try {
-    const todos = stateToFlat();
-    console.log('[Sync] Pushing to Sheets:', todos.length, 'items');
+    const lastSync = getLastSyncTime();
+    const allTodos = stateToFlat();
+    // First sync: send everything. Subsequent syncs: only items newer than lastSync.
+    // Items with epoch updatedAt (legacy, never mutated) are excluded after first sync.
+    const todos = lastSync
+      ? allTodos.filter(t => t.updatedAt && t.updatedAt > lastSync)
+      : allTodos;
+
+    if (lastSync && todos.length === 0) {
+      // Nothing changed locally — skip push, just pull remote changes
+      setSyncStatus('synced');
+      if (!syncPending) await loadFromSheets();
+      return;
+    }
+
+    console.log('[Sync] Pushing to Sheets:', todos.length, 'of', allTodos.length, 'items');
     const resp = await postToSheet({ action: 'sync', todos });
     if (!resp.ok) {
       console.error('[Sync] HTTP error:', resp.status, resp.statusText);
@@ -2378,18 +2393,38 @@ function cleanupCompletedItems() {
   }
 }
 
-async function archiveToDoneSheet(items) {
+async function archiveToDoneSheet(items, retryCount = 0) {
   if (!getSheetsUrl()) return;
+  try { localStorage.setItem(PENDING_ARCHIVE_KEY, JSON.stringify(items)); } catch(e) {}
   try {
     const rows = items.map(i => ({
       id: i.id, text: i.text, section: i.section,
       done: i.done, tag: i.tag || '', createdAt: i.createdAt || '',
-      dueDate: i.dueDate || '', completedAt: i.completedAt || '', notes: i.notes || ''
+      dueDate: i.dueDate || '', completedAt: i.completedAt || '',
+      notes: i.notes || '', updatedAt: i.updatedAt || ''
     }));
     await postToSheet({ action: 'archive', items: rows });
+    try { localStorage.removeItem(PENDING_ARCHIVE_KEY); } catch(e) {}
   } catch(e) {
-    console.warn('Archive to Done sheet failed:', e.message);
+    console.warn(`[Archive] Failed (attempt ${retryCount + 1}):`, e.message);
+    if (retryCount < MAX_SYNC_RETRIES) {
+      setTimeout(() => archiveToDoneSheet(items, retryCount + 1), 3000 * (retryCount + 1));
+    } else {
+      showSyncError('Archive to Done sheet failed — items may be missing from Done. Will retry on next load.');
+    }
   }
+}
+
+async function retryPendingArchive() {
+  try {
+    const raw = localStorage.getItem(PENDING_ARCHIVE_KEY);
+    if (!raw) return;
+    const items = JSON.parse(raw);
+    if (Array.isArray(items) && items.length) {
+      console.log('[Archive] Retrying', items.length, 'pending items from previous session');
+      await archiveToDoneSheet(items);
+    }
+  } catch(e) {}
 }
 
 // Sort items: due date ascending (nulls last), then oldest createdAt first
@@ -4860,6 +4895,7 @@ updateKeyIndicator();
     if (cfg.authToken) _dashAuthToken = cfg.authToken;
   }
   await loadFromSheets();
+  await retryPendingArchive();
   cleanupCompletedItems();
   render();
   // Await so the sheet's section layout is fully applied (its internal render)

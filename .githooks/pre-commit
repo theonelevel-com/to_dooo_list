@@ -1,0 +1,19 @@
+#!/bin/bash
+# Auto-bump SW cache version when any cached asset or the SW itself is staged.
+# Install once: git config core.hooksPath .githooks
+STAGED=$(git diff --cached --name-only 2>/dev/null)
+
+NEEDS_BUMP=false
+for f in index.html manifest.json service-worker.js icons/; do
+  if echo "$STAGED" | grep -q "^$f"; then
+    NEEDS_BUMP=true
+    break
+  fi
+done
+
+if [ "$NEEDS_BUMP" = true ]; then
+  NEW_VERSION="to-dooo-app-$(date +%Y%m%d%H%M)"
+  sed -i '' "s/const CACHE_NAME = '[^']*'/const CACHE_NAME = '$NEW_VERSION'/" service-worker.js
+  git add service-worker.js
+  echo "SW cache bumped to $NEW_VERSION"
+fi
