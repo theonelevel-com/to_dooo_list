@@ -1,4 +1,4 @@
-const CACHE_NAME = 'to-dooo-app-202606241925';
+const CACHE_NAME = 'to-dooo-app-202606291048';
 const URLS_TO_CACHE = [
   './',
   './index.html',
