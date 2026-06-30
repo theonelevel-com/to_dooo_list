@@ -4749,8 +4749,10 @@ async function loadSectionNamesFromSheet() {
   try {
     // Cache-buster prevents Apps Script/browser from serving a stale response
     const bust = '&_=' + Date.now();
+    const token = getAuthToken();
+    const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
     console.log('[Config] Loading sections config from sheet');
-    const resp = await fetch(getSheetsUrl() + '?config=sections' + bust);
+    const resp = await fetch(getSheetsUrl() + '?config=sections' + tokenParam + bust);
     if (resp.ok) {
       const data = await resp.json();
       console.log('[Config] sections response:', data);
