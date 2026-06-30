@@ -3497,9 +3497,10 @@ async function testSheetsConnection() {
   result.style.color = '#888';
   result.textContent = '⏳ Testing read…';
   try {
-    // 1) Read test (GET — always open).
+    // 1) Read test (GET — include token so Worker backends can auth).
     const sep = url.includes('?') ? '&' : '?';
-    const readResp = await fetch(url + sep + '_=' + Date.now(), { method: 'GET', cache: 'no-store' });
+    const tokenParam = token ? `token=${encodeURIComponent(token)}&` : '';
+    const readResp = await fetch(url + sep + tokenParam + '_=' + Date.now(), { method: 'GET', cache: 'no-store' });
     const readData = await readResp.json();
     if (!readData.ok) { result.textContent = '❌ Connected, but the API returned an error — check the URL'; result.style.color = '#ef4444'; return; }
 
@@ -3705,7 +3706,7 @@ function saveSettings() {
   const key = document.getElementById('settingsApiKey').value.trim();
   const deepseekKey = document.getElementById('settingsDeepSeekKey').value.trim();
   const provider = document.getElementById('settingsProvider').value;
-  if (url.startsWith('https://script.google.com/')) setSheetsUrl(url);
+  if (url.startsWith('https://')) setSheetsUrl(url);
   const authToken = document.getElementById('settingsAuthToken').value.trim();
   setAuthToken(authToken);
   authPromptShown = false;
@@ -4391,7 +4392,7 @@ function showSheetsUrlPrompt() {
         document.getElementById('sheetIdResult').textContent = '❌ Need deployment URL first';
         return;
       }
-    } else if (fullUrl && fullUrl.startsWith('https://script.google.com/')) {
+    } else if (fullUrl && fullUrl.startsWith('https://')) {
       urlToUse = fullUrl;
     }
 
