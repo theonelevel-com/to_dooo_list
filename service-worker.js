@@ -1,10 +1,11 @@
-const CACHE_NAME = 'to-dooo-app-202606301722';
+const CACHE_NAME = 'to-dooo-app-202607032032';
 const URLS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/icon.svg'
 ];
 
 self.addEventListener('install', event => {
