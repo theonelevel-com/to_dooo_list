@@ -2284,7 +2284,8 @@ async function loadFromSheets() {
     }
   } catch(e) {
     console.error('[Sync] Error:', e.message);
-    showSyncError(`Sync failed: ${e.message}`);
+    // Offline / transient network failure: no flashing toast — the persistent
+    // "◌ Local only" badge is the constant, subtle indicator. Retry silently.
     setSyncStatus('offline');
 
     // Retry after 3 seconds
@@ -2315,6 +2316,32 @@ async function pushToSheets() {
       // Nothing changed locally — skip push, just pull remote changes
       setSyncStatus('synced');
       if (!syncPending) await loadFromSheets();
+      return;
+    }
+
+    // Stage 3: route the push through @dooo/core's durable outbox when available,
+    // so an offline edit survives an app close (Background Sync replays it). Falls
+    // through to the original direct-POST path below if the engine isn't ready
+    // (e.g. IndexedDB blocked in private mode) — no regression.
+    if (window.TodoSync && (await window.TodoSync.ready)) {
+      const res = await window.TodoSync.queueAndPush(todos);
+      if (res.ok) {
+        setLastSyncTime();
+        syncRetryCount = 0;
+        authPromptShown = false;
+        writeAuthFailed = false;
+        setSyncStatus('synced');
+        if (!syncPending) await loadFromSheets();
+      } else if (res.unauthorized) {
+        writeAuthFailed = true;
+        setSyncStatus('error');
+        showSyncError("Can't save from this device — it needs the sync token. Opening Settings…");
+        if (!authPromptShown) { authPromptShown = true; setTimeout(showSettings, 600); }
+      } else {
+        // Offline / server unavailable — the edit is safely queued in the outbox
+        // and will replay on reconnect or via Background Sync. Not a data loss.
+        setSyncStatus('offline');
+      }
       return;
     }
 
@@ -2354,7 +2381,8 @@ async function pushToSheets() {
     }
   } catch(e) {
     console.error('[Sync] Push error:', e.message);
-    showSyncError(`Push failed: ${e.message}`);
+    // Offline / transient network failure: rely on the persistent badge, no
+    // flashing toast. The edit is safe (localStorage + outbox); retry silently.
     setSyncStatus('offline');
 
     // Retry after 3 seconds
@@ -4895,6 +4923,15 @@ async function refreshFromSheets() {
   loadSectionNamesFromSheet();
 }
 
+// Called by sync-bridge.js after the outbox drains (on reconnect / Background
+// Sync) so this device reflects the server's merged result.
+window.reconcileAfterDrain = function() {
+  loadFromSheets().then(() => {
+    cleanupCompletedItems();
+    loadSectionNamesFromSheet();
+  }).catch(() => {});
+};
+
 // (#2) Re-sync whenever the tab/PWA regains focus
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) refreshFromSheets();
@@ -5026,6 +5063,11 @@ if ('serviceWorker' in navigator) {
     </a>
   </div>
 </div>
+
+<!-- Stage 3: durable offline outbox + Background Sync via @dooo/core. Additive —
+     the classic script above keeps its own pull/merge; only push routes through
+     this, with a fallback to direct POST if IndexedDB is unavailable. -->
+<script type="module" src="/sync-bridge.js"></script>
 
 </body>
 </html>
