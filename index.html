@@ -1768,9 +1768,26 @@ function setSheetsUrl(url) {
 // (doGet) are unchecked — keeps `?config=sections` lookups public.
 const AUTH_TOKEN_STORAGE = 'todo_auth_token_v1';
 
+// Stage 4: the first-party magic-link session (set by sync-bridge.js after it
+// resolves the IDB session / landing). Its JWT is the auth token when present.
+let _session = null;
+window.__applyDoooSession = function (s) { _session = s || null; };
+function getScope() { return _session && _session.household ? _session.household.id : null; }
+
 function getAuthToken() {
-  if (_dashAuthToken) return _dashAuthToken;
-  try { return localStorage.getItem(AUTH_TOKEN_STORAGE) || ''; } catch(e) { return ''; }
+  if (_dashAuthToken) return _dashAuthToken;            // in-shell: dash-injected JWT
+  if (_session && _session.jwt) return _session.jwt;    // standalone: signed-in session
+  try { return localStorage.getItem(AUTH_TOKEN_STORAGE) || ''; } catch(e) { return ''; } // legacy paste-token
+}
+
+// Stage 4: dooo-api accepts session JWTs ONLY from the Authorization header
+// (never query/body). Legacy + api tokens work from the header too, so all
+// reads/writes carry the token this way now.
+function authHeaders(extra) {
+  const h = extra ? { ...extra } : {};
+  const t = getAuthToken();
+  if (t) h['Authorization'] = 'Bearer ' + t;
+  return h;
 }
 
 function setAuthToken(token) {
@@ -1786,11 +1803,10 @@ function setAuthToken(token) {
  * resp.ok / json handling.
  */
 function postToSheet(body) {
-  const token = getAuthToken();
-  const payload = token ? { ...body, token } : body;
   return fetch(getSheetsUrl(), {
     method: 'POST',
-    body: JSON.stringify(payload)
+    headers: authHeaders(),
+    body: JSON.stringify(body)
   });
 }
 
@@ -2241,11 +2257,9 @@ async function loadFromSheets() {
     // a pull right after a push (or a poll) can serve a stale pre-edit snapshot
     // and silently revert local changes (e.g. section moves).
     const sep = getSheetsUrl().includes('?') ? '&' : '?';
-    const token = getAuthToken();
-    const tokenParam = token ? `token=${encodeURIComponent(token)}&` : '';
-    const url = getSheetsUrl() + sep + tokenParam + '_=' + Date.now();
+    const url = getSheetsUrl() + sep + '_=' + Date.now();
     console.log('[Sync] Loading from Sheets:', url);
-    const resp = await fetch(url, { method: 'GET', cache: 'no-store' });
+    const resp = await fetch(url, { method: 'GET', cache: 'no-store', headers: authHeaders() });
     if (!resp.ok) {
       console.error('[Sync] HTTP error:', resp.status, resp.statusText);
       throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
@@ -3527,18 +3541,17 @@ async function testSheetsConnection() {
   result.style.color = '#888';
   result.textContent = '⏳ Testing read…';
   try {
-    // 1) Read test (GET — include token so Worker backends can auth).
+    // 1) Read test (GET — token in the Authorization header, so a JWT works too).
     const sep = url.includes('?') ? '&' : '?';
-    const tokenParam = token ? `token=${encodeURIComponent(token)}&` : '';
-    const readResp = await fetch(url + sep + tokenParam + '_=' + Date.now(), { method: 'GET', cache: 'no-store' });
+    const testHeaders = token ? { Authorization: 'Bearer ' + token } : {};
+    const readResp = await fetch(url + sep + '_=' + Date.now(), { method: 'GET', cache: 'no-store', headers: testHeaders });
     const readData = await readResp.json();
     if (!readData.ok) { result.textContent = '❌ Connected, but the API returned an error — check the URL'; result.style.color = '#ef4444'; return; }
 
     // 2) Write/auth test (POST — this is what create/delete actually use).
     result.textContent = '⏳ Testing write & auth…';
     const body = { action: 'saveConfig', key: '_authcheck', value: new Date().toISOString() };
-    if (token) body.token = token;
-    const writeResp = await fetch(url, { method: 'POST', body: JSON.stringify(body) });
+    const writeResp = await fetch(url, { method: 'POST', headers: testHeaders, body: JSON.stringify(body) });
     const writeData = await writeResp.json();
     if (writeData.ok) {
       result.textContent = '✅ Connected and authorised — create & delete will sync';
@@ -4777,10 +4790,8 @@ async function loadSectionNamesFromSheet() {
   try {
     // Cache-buster prevents Apps Script/browser from serving a stale response
     const bust = '&_=' + Date.now();
-    const token = getAuthToken();
-    const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
     console.log('[Config] Loading sections config from sheet');
-    const resp = await fetch(getSheetsUrl() + '?config=sections' + tokenParam + bust);
+    const resp = await fetch(getSheetsUrl() + '?config=sections' + bust, { headers: authHeaders() });
     if (resp.ok) {
       const data = await resp.json();
       console.log('[Config] sections response:', data);
