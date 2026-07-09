@@ -1,4 +1,4 @@
-const CACHE_NAME = 'to-dooo-app-202607071418';
+const CACHE_NAME = 'to-dooo-app-202607090932';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -46,23 +46,27 @@ self.addEventListener('sync', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Network-first for API calls, cache-first for static assets
+  if (event.request.method !== 'GET') return; // writes go straight to the network
   const url = event.request.url;
-  // Never cache the sync backend (dooo-api Worker) or LLM APIs. POSTs bypass the
-  // cache anyway; this keeps GET pulls fresh even without the client cache-buster.
+  // Never intercept the sync backend (dooo-api Worker) or LLM APIs — always live.
   if (url.includes('workers.dev') || url.includes('dooo-api') ||
       url.includes('script.google.com') || url.includes('api.anthropic.com')) {
-    // Network only for API calls
-    event.respondWith(fetch(event.request));
-  } else {
-    // Cache first, then network
-    event.respondWith(
-      caches.match(event.request)
-        .then(cached => cached || fetch(event.request).then(resp => {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          return resp;
-        }))
-    );
+    return; // default network handling
   }
+  // Same-origin shell / JS / assets: NETWORK-FIRST, so a deployed fix is never
+  // masked by a cached copy. (This SW previously served these cache-first, which
+  // in a path-caching proxy environment could pin stale JS.) Fall back to the
+  // cache when offline; navigations fall back to the cached shell.
+  event.respondWith(
+    fetch(event.request).then(resp => {
+      const clone = resp.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(() => {});
+      return resp;
+    }).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      if (event.request.mode === 'navigate') return caches.match('./index.html');
+      throw new Error('offline and not cached');
+    })
+  );
 });

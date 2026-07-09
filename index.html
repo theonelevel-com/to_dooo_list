@@ -4791,7 +4791,7 @@ async function loadSectionNamesFromSheet() {
     // Cache-buster prevents Apps Script/browser from serving a stale response
     const bust = '&_=' + Date.now();
     console.log('[Config] Loading sections config from sheet');
-    const resp = await fetch(getSheetsUrl() + '?config=sections' + bust, { headers: authHeaders() });
+    const resp = await fetch(getSheetsUrl() + '?config=sections' + bust, { cache: 'no-store', headers: authHeaders() });
     if (resp.ok) {
       const data = await resp.json();
       console.log('[Config] sections response:', data);
@@ -4832,7 +4832,7 @@ async function loadSectionNamesFromSheet() {
     }
 
     // Fallback: try legacy sectionNames-only key (older sheets)
-    const legacy = await fetch(getSheetsUrl() + '?config=sectionNames' + bust);
+    const legacy = await fetch(getSheetsUrl() + '?config=sectionNames' + bust, { cache: 'no-store' });
     if (legacy.ok) {
       const data = await legacy.json();
       if (data.ok && data.config && data.config.sectionNames) {
