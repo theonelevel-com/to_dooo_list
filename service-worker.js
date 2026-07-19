@@ -1,4 +1,4 @@
-const CACHE_NAME = 'to-dooo-app-202607141608';
+const CACHE_NAME = 'to-dooo-app-202607191335';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -50,7 +50,7 @@ self.addEventListener('fetch', event => {
   const url = event.request.url;
   // Never intercept the sync backend (dooo-api Worker) or LLM APIs — always live.
   if (url.includes('workers.dev') || url.includes('dooo-api') ||
-      url.includes('script.google.com') || url.includes('api.anthropic.com')) {
+      url.includes('api.anthropic.com')) {
     return; // default network handling
   }
   // Same-origin shell / JS / assets: NETWORK-FIRST, so a deployed fix is never

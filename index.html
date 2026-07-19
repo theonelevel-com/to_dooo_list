@@ -1600,13 +1600,13 @@
     <h2>Settings</h2>
     <div style="margin-top: 16px;">
       <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
-        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6c63ff; font-weight: 700; margin-bottom: 8px;">Sync · Google Sheets</div>
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6c63ff; font-weight: 700; margin-bottom: 8px;">Sync · Endpoint</div>
 
         <div style="display: flex; align-items: center; gap: 6px;">
-          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Deployment URL <span style="color:#ef4444;">*</span></label>
-          <button type="button" onclick="toggleHint(this)" data-hint="The Apps Script Web App URL (Deploy ▸ New deployment ▸ Web app ▸ the …/exec link). Required to sync, and must be identical on every device." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
+          <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Endpoint URL <span style="color:#ef4444;">*</span></label>
+          <button type="button" onclick="toggleHint(this)" data-hint="The sync endpoint your tasks read and write to. Required to sync, and must be identical on every device." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
-        <input id="settingsSheetsUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="
+        <input id="settingsSheetsUrl" type="url" placeholder="https://your-endpoint/api/todos" style="
           width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
           font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
         ">
@@ -1638,7 +1638,7 @@
         <div style="font-size: 0.76rem; margin-top: 6px; color: #aaa;">Tag an item <b>→ pre-dooo</b> to send it here automatically. Items returning from pre-dooo use <b>← pre-dooo</b>.</div>
         <div style="display: flex; align-items: center; gap: 6px; margin-top: 14px;">
           <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">pre-dooo Token</label>
-          <button type="button" onclick="toggleHint(this)" data-hint="Sent in the POST body as 'token' to authenticate with the pre-dooo endpoint. Leave blank to reuse the Sheets Auth Token." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
+          <button type="button" onclick="toggleHint(this)" data-hint="Sent in the POST body as 'token' to authenticate with the capture endpoint. Leave blank to reuse the sync auth token." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
         <input id="settingsPredoToken" type="password" placeholder="(optional — shared secret for pre-dooo)" style="
           width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
@@ -3538,7 +3538,7 @@ function updateLastSyncedDisplay() {
 async function testSheetsConnection() {
   const result = document.getElementById('sheetsTestResult');
   const url = document.getElementById('settingsSheetsUrl').value.trim();
-  if (!url) { result.textContent = '❌ Enter the Deployment URL first'; result.style.color = '#ef4444'; return; }
+  if (!url) { result.textContent = '❌ Enter the endpoint URL first'; result.style.color = '#ef4444'; return; }
   const token = document.getElementById('settingsAuthToken').value.trim();
   result.style.color = '#888';
   result.textContent = '⏳ Testing read…';
@@ -4372,83 +4372,47 @@ function updateKeyIndicator() {
 // ── Sheets URL prompt ────────────────────────────────────────────────────────
 
 function showSheetsUrlPrompt() {
-  showModal('Connect to Google Sheets', 'Enter your setup details to sync tasks.');
+  showModal('Connect to sync', 'Enter your sync endpoint to save and sync tasks across your devices.');
   const body = document.querySelector('.modal p');
   const currentUrl = getSheetsUrl();
 
   body.innerHTML = `
-    <div style="margin-bottom: 16px;">
-      <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Option 1: Sheet ID</label>
-      <div style="display: flex; gap: 8px; margin-top: 6px;">
-        <input id="sheetIdInput" type="text" placeholder="1a2b3c4d5e6f..." style="
-          flex: 1; border: 1.5px solid #e0e0e0; border-radius: 8px;
-          padding: 9px 12px; font-size: 0.85rem; outline: none; font-family: monospace;
-        ">
-        <button onclick="validateSheetId()" style="
-          border: 1.5px solid #6c63ff; background: none; color: #6c63ff;
-          border-radius: 8px; padding: 9px 12px; font-size: 0.8rem;
-          font-weight: 600; cursor: pointer; white-space: nowrap;
-        ">Check</button>
-      </div>
-      <div id="sheetIdResult" style="font-size: 0.75rem; margin-top: 4px; color: #666;"></div>
-    </div>
-
-    <div style="border-top: 1px solid #e0e0e0; padding-top: 12px; padding-bottom: 12px;">
-      <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Option 2: Full Deployment URL</label>
-      <input id="sheetsUrlInput" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="
-        width: 100%; border: 1.5px solid #e0e0e0; border-radius: 8px;
+    <div style="border-bottom: 1px solid #e0e0e0; padding-bottom: 12px; margin-bottom: 12px;">
+      <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Endpoint URL</label>
+      <input id="sheetsUrlInput" type="url" placeholder="https://your-endpoint/api/todos" style="
+        width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px;
         padding: 9px 12px; font-size: 0.85rem; outline: none; margin-top: 6px; font-family: monospace;
       " value="${currentUrl}">
     </div>
 
-    <div style="border-top: 1px solid #e0e0e0; padding-top: 12px; padding-bottom: 12px;">
+    <div style="border-bottom: 1px solid #e0e0e0; padding-bottom: 12px; margin-bottom: 12px;">
       <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Auth token (optional)</label>
       <input id="authTokenInput" type="password" placeholder="leave blank for no auth" autocomplete="off" style="
-        width: 100%; border: 1.5px solid #e0e0e0; border-radius: 8px;
+        width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px;
         padding: 9px 12px; font-size: 0.85rem; outline: none; margin-top: 6px; font-family: monospace;
       " value="${getAuthToken()}">
       <div style="font-size: 0.7rem; color: #aaa; margin-top: 4px; line-height: 1.4;">
-        Only needed if the backend's Script Property <code>AUTH_TOKEN</code> is set. Same value as the one set in Apps Script.
+        Only needed if the endpoint requires one. Sent in the request body as <code>token</code>.
       </div>
     </div>
 
     <div style="font-size: 0.75rem; color: #aaa; line-height: 1.4;">
-      <strong>Sheet ID:</strong> Found in sheet URL between <code>/d/</code> and <code>/edit</code><br>
-      <strong>Deployment URL:</strong> From Apps Script > Deploy > New Deployment > Web App
+      Use the same endpoint URL on every device. For the dooo suite this is <code>/api/todos</code> on the dooo-api Worker.
     </div>
   `;
 
   document.getElementById('modalYes').textContent = 'Save & Sync';
   document.getElementById('modalNo').textContent = 'Cancel';
   document.getElementById('modalYes').onclick = () => {
-    const sheetId = document.getElementById('sheetIdInput')?.value.trim();
     const fullUrl = document.getElementById('sheetsUrlInput')?.value.trim();
-    let urlToUse = '';
-
-    // If sheet ID is provided, construct the URL
-    if (sheetId && sheetId.length > 10) {
-      // For sheet ID, we need the deployment ID too. For now, try to extract from any existing URL
-      const existingUrl = getSheetsUrl();
-      const deployMatch = existingUrl.match(/script\.google\.com\/macros\/s\/([^\/]+)\//);
-      if (deployMatch) {
-        urlToUse = `https://script.google.com/macros/s/${deployMatch[1]}/exec`;
-        document.getElementById('sheetIdResult').textContent = '✓ Using deployment from existing URL';
-      } else {
-        document.getElementById('sheetIdResult').textContent = '❌ Need deployment URL first';
-        return;
-      }
-    } else if (fullUrl && fullUrl.startsWith('https://')) {
-      urlToUse = fullUrl;
-    }
-
-    if (urlToUse) {
-      setSheetsUrl(urlToUse);
+    if (fullUrl && fullUrl.startsWith('https://')) {
+      setSheetsUrl(fullUrl);
       // Save (or clear) the auth token alongside the URL.
       const tokenInput = document.getElementById('authTokenInput');
       setAuthToken(tokenInput ? tokenInput.value.trim() : '');
       closeModal();
       resetModal();
-      console.log('[Setup] Connecting to:', urlToUse);
+      console.log('[Setup] Connecting to:', fullUrl);
       syncRetryCount = 0; // Reset retry count
       loadFromSheets().then(() => {
         cleanupCompletedItems();
@@ -4457,28 +4421,11 @@ function showSheetsUrlPrompt() {
       loadSectionNamesFromSheet();
     } else {
       document.getElementById('sheetsUrlInput').style.borderColor = '#e53935';
-      showSyncError('Please enter either a Sheet ID or full Deployment URL');
+      showSyncError('Please enter a valid https:// endpoint URL');
     }
   };
   document.getElementById('modalNo').onclick = () => { closeModal(); resetModal(); };
-  setTimeout(() => document.getElementById('sheetIdInput')?.focus(), 100);
-}
-
-function validateSheetId() {
-  const sheetId = document.getElementById('sheetIdInput')?.value.trim();
-  const result = document.getElementById('sheetIdResult');
-  if (!sheetId) {
-    result.textContent = 'Enter a Sheet ID';
-    result.style.color = '#f59e0b';
-    return;
-  }
-  if (sheetId.length < 10) {
-    result.textContent = '❌ Sheet ID looks too short';
-    result.style.color = '#ef4444';
-    return;
-  }
-  result.textContent = '✓ Sheet ID looks valid (use full URL to complete setup)';
-  result.style.color = '#22c55e';
+  setTimeout(() => document.getElementById('sheetsUrlInput')?.focus(), 100);
 }
 
 // ── Smart reply engine ────────────────────────────────────────────────────────
