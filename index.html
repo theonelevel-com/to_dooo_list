@@ -1606,7 +1606,7 @@
           <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Endpoint URL <span style="color:#ef4444;">*</span></label>
           <button type="button" onclick="toggleHint(this)" data-hint="The sync endpoint your tasks read and write to. Required to sync, and must be identical on every device." style="font-size: 0.85rem; color: #6c63ff; cursor: pointer; background: none; border: none; padding: 0; line-height: 1;">ℹ️</button>
         </div>
-        <input id="settingsSheetsUrl" type="url" placeholder="https://your-endpoint/api/todos" style="
+        <input id="settingsEndpointUrl" type="url" placeholder="https://your-endpoint/api/todos" style="
           width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 12px;
           font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
         ">
@@ -1620,11 +1620,11 @@
           font-size: 0.85rem; outline: none; font-family: monospace; margin-top: 6px;
         ">
 
-        <button onclick="testSheetsConnection()" style="
+        <button onclick="testEndpointConnection()" style="
           margin-top: 10px; border: 1.5px solid #6c63ff; border-radius: 8px; padding: 9px 14px; background: #6c63ff; color: white;
           font-size: 0.78rem; font-weight: 700; cursor: pointer;
         ">Test connection &amp; auth</button>
-        <div id="sheetsTestResult" style="font-size: 0.8rem; margin-top: 8px; color: #888; line-height: 1.4;"></div>
+        <div id="endpointTestResult" style="font-size: 0.8rem; margin-top: 8px; color: #888; line-height: 1.4;"></div>
       </div>
       <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1746,22 +1746,28 @@ const SECTIONS_ORDER_KEY = 'todo_sections_order_v1';
 // change is never clobbered by a stale sheet (and a newer sheet — e.g. an
 // edit on another device — still wins).
 const SECTIONS_TS_KEY = 'todo_sections_ts_v1';
-const SHEETS_URL_STORAGE = 'todo_sheets_url_v1';
+const ENDPOINT_URL_STORAGE = 'todo_endpoint_url_v1';
+const LEGACY_URL_STORAGE   = 'todo_sheets_url_v1';   // pre-rename key; migrated on read
 const LAST_SYNC_TIME_KEY    = 'todo_last_sync_time_v1';
 const PENDING_ARCHIVE_KEY   = 'todo_pending_archive_v1';
 
-// _dashSheetsUrl / _dashAuthToken are set by requestDashConfig() when embedded.
-// Declared here so getSheetsUrl/getAuthToken can reference them; populated later.
-let _dashSheetsUrl = '';
+// _dashEndpointUrl / _dashAuthToken are set by requestDashConfig() when embedded.
+// Declared here so getEndpointUrl/getAuthToken can reference them; populated later.
+let _dashEndpointUrl = '';
 let _dashAuthToken = '';
 
-function getSheetsUrl() {
-  if (_dashSheetsUrl) return _dashSheetsUrl;
-  try { return localStorage.getItem(SHEETS_URL_STORAGE) || ''; } catch(e) { return ''; }
+function getEndpointUrl() {
+  if (_dashEndpointUrl) return _dashEndpointUrl;
+  try {
+    let u = localStorage.getItem(ENDPOINT_URL_STORAGE);
+    // One-time migration from the pre-rename key so a saved endpoint survives.
+    if (!u) { u = localStorage.getItem(LEGACY_URL_STORAGE) || ''; if (u) localStorage.setItem(ENDPOINT_URL_STORAGE, u); }
+    return u || '';
+  } catch(e) { return ''; }
 }
 
-function setSheetsUrl(url) {
-  try { localStorage.setItem(SHEETS_URL_STORAGE, url); } catch(e) {}
+function setEndpointUrl(url) {
+  try { localStorage.setItem(ENDPOINT_URL_STORAGE, url); } catch(e) {}
 }
 
 // ── Auth token (optional) ────────────────────────────────────────────────────
@@ -1805,7 +1811,7 @@ function setAuthToken(token) {
  * resp.ok / json handling.
  */
 function postToSheet(body) {
-  return fetch(getSheetsUrl(), {
+  return fetch(getEndpointUrl(), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(body)
@@ -2109,7 +2115,7 @@ function setSyncStatus(status) {
     el.style.color = s.color;
     el.style.cursor = 'pointer';
     el.title = 'Click to update Sheets deployment URL';
-    el.onclick = showSheetsUrlPrompt;
+    el.onclick = showEndpointPrompt;
   }
 
   // Update floating badge
@@ -2252,14 +2258,14 @@ function stateToFlat() {
 
 // Load from Sheets on startup
 async function loadFromSheets() {
-  if (!getSheetsUrl()) { setSyncStatus('setup'); return false; }
+  if (!getEndpointUrl()) { setSyncStatus('setup'); return false; }
   setSyncStatus('syncing');
   try {
     // Cache-buster: Apps Script GET responses are cacheable, so without this
     // a pull right after a push (or a poll) can serve a stale pre-edit snapshot
     // and silently revert local changes (e.g. section moves).
-    const sep = getSheetsUrl().includes('?') ? '&' : '?';
-    const url = getSheetsUrl() + sep + '_=' + Date.now();
+    const sep = getEndpointUrl().includes('?') ? '&' : '?';
+    const url = getEndpointUrl() + sep + '_=' + Date.now();
     console.log('[Sync] Loading from Sheets:', url);
     const resp = await fetch(url, { method: 'GET', cache: 'no-store', headers: authHeaders() });
     if (!resp.ok) {
@@ -2316,7 +2322,7 @@ async function loadFromSheets() {
 
 // Push changed items to Sheets (incremental — only items modified since last sync)
 async function pushToSheets() {
-  if (!getSheetsUrl()) { setSyncStatus('setup'); return; }
+  if (!getEndpointUrl()) { setSyncStatus('setup'); return; }
   syncPending = false;
   setSyncStatus('syncing');
   try {
@@ -2444,7 +2450,7 @@ function cleanupCompletedItems() {
 }
 
 async function archiveToDoneSheet(items, retryCount = 0) {
-  if (!getSheetsUrl()) return;
+  if (!getEndpointUrl()) return;
   try { localStorage.setItem(PENDING_ARCHIVE_KEY, JSON.stringify(items)); } catch(e) {}
   try {
     const rows = items.map(i => ({
@@ -2492,7 +2498,7 @@ function sortItems(items) {
 // Debounced save — waits 800ms after last change before syncing
 function saveState() {
   saveLocalState();
-  if (!getSheetsUrl()) return;
+  if (!getEndpointUrl()) return;
   clearTimeout(syncTimer);
   syncPending = true;
   setSyncStatus('syncing');
@@ -3510,7 +3516,7 @@ function toggleHint(btn) {
 
 function showSettings() {
   document.getElementById('settingsOverlay').classList.add('visible');
-  document.getElementById('settingsSheetsUrl').value = getSheetsUrl();
+  document.getElementById('settingsEndpointUrl').value = getEndpointUrl();
   document.getElementById('settingsAuthToken').value = getAuthToken();
   document.getElementById('settingsPredoUrl').value = getPredoUrl();
   document.getElementById('settingsPredoToken').value = getPredoToken();
@@ -3535,9 +3541,9 @@ function updateLastSyncedDisplay() {
   }
 }
 
-async function testSheetsConnection() {
-  const result = document.getElementById('sheetsTestResult');
-  const url = document.getElementById('settingsSheetsUrl').value.trim();
+async function testEndpointConnection() {
+  const result = document.getElementById('endpointTestResult');
+  const url = document.getElementById('settingsEndpointUrl').value.trim();
   if (!url) { result.textContent = '❌ Enter the endpoint URL first'; result.style.color = '#ef4444'; return; }
   const token = document.getElementById('settingsAuthToken').value.trim();
   result.style.color = '#888';
@@ -3747,11 +3753,11 @@ function closeSettings() {
 }
 
 function saveSettings() {
-  const url = document.getElementById('settingsSheetsUrl').value.trim();
+  const url = document.getElementById('settingsEndpointUrl').value.trim();
   const key = document.getElementById('settingsApiKey').value.trim();
   const deepseekKey = document.getElementById('settingsDeepSeekKey').value.trim();
   const provider = document.getElementById('settingsProvider').value;
-  if (url.startsWith('https://')) setSheetsUrl(url);
+  if (url.startsWith('https://')) setEndpointUrl(url);
   const authToken = document.getElementById('settingsAuthToken').value.trim();
   setAuthToken(authToken);
   authPromptShown = false;
@@ -3968,7 +3974,7 @@ if (IN_DASH) {
   } catch (e) {}
 }
 
-// Request sheetsUrl + authToken from the dash dooo shell. The shell fetches
+// Request endpointUrl + authToken from the dash dooo shell. The shell fetches
 // /api/embed-config (Access-gated) and returns the values so this iframe never
 // needs them in its partitioned localStorage.
 function requestDashConfig() {
@@ -4371,15 +4377,15 @@ function updateKeyIndicator() {
 
 // ── Sheets URL prompt ────────────────────────────────────────────────────────
 
-function showSheetsUrlPrompt() {
+function showEndpointPrompt() {
   showModal('Connect to sync', 'Enter your sync endpoint to save and sync tasks across your devices.');
   const body = document.querySelector('.modal p');
-  const currentUrl = getSheetsUrl();
+  const currentUrl = getEndpointUrl();
 
   body.innerHTML = `
     <div style="border-bottom: 1px solid #e0e0e0; padding-bottom: 12px; margin-bottom: 12px;">
       <label style="font-size: 0.75rem; text-transform: uppercase; color: #888; font-weight: 600;">Endpoint URL</label>
-      <input id="sheetsUrlInput" type="url" placeholder="https://your-endpoint/api/todos" style="
+      <input id="endpointUrlInput" type="url" placeholder="https://your-endpoint/api/todos" style="
         width: 100%; box-sizing: border-box; border: 1.5px solid #e0e0e0; border-radius: 8px;
         padding: 9px 12px; font-size: 0.85rem; outline: none; margin-top: 6px; font-family: monospace;
       " value="${currentUrl}">
@@ -4404,9 +4410,9 @@ function showSheetsUrlPrompt() {
   document.getElementById('modalYes').textContent = 'Save & Sync';
   document.getElementById('modalNo').textContent = 'Cancel';
   document.getElementById('modalYes').onclick = () => {
-    const fullUrl = document.getElementById('sheetsUrlInput')?.value.trim();
+    const fullUrl = document.getElementById('endpointUrlInput')?.value.trim();
     if (fullUrl && fullUrl.startsWith('https://')) {
-      setSheetsUrl(fullUrl);
+      setEndpointUrl(fullUrl);
       // Save (or clear) the auth token alongside the URL.
       const tokenInput = document.getElementById('authTokenInput');
       setAuthToken(tokenInput ? tokenInput.value.trim() : '');
@@ -4420,12 +4426,12 @@ function showSheetsUrlPrompt() {
       });
       loadSectionNamesFromSheet();
     } else {
-      document.getElementById('sheetsUrlInput').style.borderColor = '#e53935';
+      document.getElementById('endpointUrlInput').style.borderColor = '#e53935';
       showSyncError('Please enter a valid https:// endpoint URL');
     }
   };
   document.getElementById('modalNo').onclick = () => { closeModal(); resetModal(); };
-  setTimeout(() => document.getElementById('sheetsUrlInput')?.focus(), 100);
+  setTimeout(() => document.getElementById('endpointUrlInput')?.focus(), 100);
 }
 
 // ── Smart reply engine ────────────────────────────────────────────────────────
@@ -4735,12 +4741,12 @@ function updateDarkToggle() {
 // ── Section names sync ───────────────────────────────────────────────────────
 
 async function loadSectionNamesFromSheet() {
-  if (!getSheetsUrl()) return;
+  if (!getEndpointUrl()) return;
   try {
     // Cache-buster prevents Apps Script/browser from serving a stale response
     const bust = '&_=' + Date.now();
     console.log('[Config] Loading sections config from sheet');
-    const resp = await fetch(getSheetsUrl() + '?config=sections' + bust, { cache: 'no-store', headers: authHeaders() });
+    const resp = await fetch(getEndpointUrl() + '?config=sections' + bust, { cache: 'no-store', headers: authHeaders() });
     if (resp.ok) {
       const data = await resp.json();
       console.log('[Config] sections response:', data);
@@ -4781,7 +4787,7 @@ async function loadSectionNamesFromSheet() {
     }
 
     // Fallback: try legacy sectionNames-only key (older sheets)
-    const legacy = await fetch(getSheetsUrl() + '?config=sectionNames' + bust, { cache: 'no-store' });
+    const legacy = await fetch(getEndpointUrl() + '?config=sectionNames' + bust, { cache: 'no-store' });
     if (legacy.ok) {
       const data = await legacy.json();
       if (data.ok && data.config && data.config.sectionNames) {
@@ -4809,7 +4815,7 @@ async function loadSectionNamesFromSheet() {
 }
 
 async function pushSectionsConfigToSheet() {
-  if (!getSheetsUrl()) return;
+  if (!getEndpointUrl()) return;
   // Stamp a fresh clock and persist it locally BEFORE the network call, so
   // even if the push fails the local copy is marked newer than the sheet and
   // the next load won't overwrite it (it'll re-push to repair instead).
@@ -4847,12 +4853,15 @@ initChat();
 updateKeyIndicator();
 
 // Then pull latest from Google Sheets in background.
-// When embedded in dash dooo, request sheetsUrl + authToken from the shell
+// When embedded in dash dooo, request endpointUrl + authToken from the shell
 // first — localStorage is partitioned so standalone settings are invisible here.
 (async () => {
   if (IN_DASH) {
     const cfg = await requestDashConfig();
-    if (cfg.sheetsUrl) _dashSheetsUrl = cfg.sheetsUrl;
+    // Accept the legacy `sheetsUrl` field too, so this keeps working whether or
+    // not the dash shell has redeployed with the renamed `endpointUrl` field.
+    const ep = cfg.endpointUrl || cfg.sheetsUrl;
+    if (ep) _dashEndpointUrl = ep;
     if (cfg.authToken) _dashAuthToken = cfg.authToken;
     // Hydrate the saved theme from the shell's first-party store (iOS wipes
     // our own partitioned localStorage). No stored pref → keep the dark
@@ -4875,7 +4884,7 @@ updateKeyIndicator();
 // Apps Script can't push, so we pull on focus + poll on an interval.
 // Skips the pull if a local change is queued, so we never clobber unsaved edits.
 async function refreshFromSheets() {
-  if (!getSheetsUrl()) return;
+  if (!getEndpointUrl()) return;
   if (syncPending) return;               // a local push is pending — don't overwrite it
   if (document.hidden) return;           // only when the app is actually visible
   await loadFromSheets();
@@ -4904,7 +4913,7 @@ setInterval(refreshFromSheets, SYNC_POLL_MS);
 
 // (#5) Manual refresh button — flush any pending local change, then pull
 async function manualRefresh(btn) {
-  if (!getSheetsUrl()) { showSettings(); return; }
+  if (!getEndpointUrl()) { showSettings(); return; }
   if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
   try {
     if (syncPending) {
@@ -4922,7 +4931,7 @@ async function manualRefresh(btn) {
 
 // Refresh FAB (Shop-Wise style) — spins while pulling from Sheets
 async function refreshFab(btn) {
-  if (!getSheetsUrl()) { showSettings(); return; }
+  if (!getEndpointUrl()) { showSettings(); return; }
   btn.classList.add('spinning');
   btn.disabled = true;
   try {

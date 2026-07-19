@@ -17,7 +17,7 @@ const DOOO_API = "https://dooo-api.apps-8ec.workers.dev"; // auth origin fallbac
 const IN_DASH = (() => { try { return !!g.parent && g.parent !== g; } catch { return false; } })();
 
 function authApiBase() {
-  try { return new URL(g.getSheetsUrl()).origin; } catch { return DOOO_API; }
+  try { return new URL(g.getEndpointUrl()).origin; } catch { return DOOO_API; }
 }
 
 // ── Stage 4: resolve the session, then build the engine with the right scope ──
@@ -59,7 +59,7 @@ const engine = new SyncEngine({
   scope, // Stage 4: namespaces the local DB per household
   pollMs: 0, // to.dooo drives its own 30s poll + focus refresh; don't double-poll
   transport: createTodoTransport({
-    baseUrl: () => (g.getSheetsUrl ? g.getSheetsUrl() : ""),
+    baseUrl: () => (g.getEndpointUrl ? g.getEndpointUrl() : ""),
     getToken: () => (g.getAuthToken ? g.getAuthToken() : ""),
   }),
   onStatus: (s) => g.setSyncStatus && g.setSyncStatus(s),
