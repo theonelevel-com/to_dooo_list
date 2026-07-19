@@ -1,9 +1,15 @@
 {
+  "id": "/",
   "name": "to dooo",
   "short_name": "to dooo",
   "description": "Shared task management",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity"],
   "background_color": "#0f1419",
   "theme_color": "#0f1419",
   "icons": [

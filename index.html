@@ -1810,7 +1810,7 @@ function setAuthToken(token) {
  * body if one is set. Returns the fetch Response so callers keep their own
  * resp.ok / json handling.
  */
-function postToSheet(body) {
+function postToEndpoint(body) {
   return fetch(getEndpointUrl(), {
     method: 'POST',
     headers: authHeaders(),
@@ -2011,7 +2011,7 @@ function loadSectionNames() {
 
 function saveSectionNames() {
   try { localStorage.setItem(SECTION_NAMES_KEY, JSON.stringify(sectionNames)); } catch(e) {}
-  if (typeof pushSectionNamesToSheet === 'function') pushSectionNamesToSheet();
+  if (typeof pushSectionNamesToEndpoint === 'function') pushSectionNamesToEndpoint();
 }
 
 function loadSectionsOrder() {
@@ -2028,7 +2028,7 @@ function loadSectionsOrder() {
 
 function saveSectionsOrder() {
   try { localStorage.setItem(SECTIONS_ORDER_KEY, JSON.stringify(SECTIONS_ORDER)); } catch(e) {}
-  if (typeof pushSectionNamesToSheet === 'function') pushSectionNamesToSheet();
+  if (typeof pushSectionNamesToEndpoint === 'function') pushSectionNamesToEndpoint();
 }
 
 let sectionNames = loadSectionNames();
@@ -2080,10 +2080,10 @@ function saveLocalState() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
 }
 
-// ── Google Sheets sync ────────────────────────────────────────────────────────
+// ── Endpoint sync ────────────────────────────────────────────────────────
 //
 // CONFLICT RESOLUTION (last-write-wins by `updatedAt` ISO timestamp):
-//   • Pull (sheetsToState): for a given item id, the REMOTE copy wins when
+//   • Pull (recordsToState): for a given item id, the REMOTE copy wins when
 //     remote.updatedAt >= local.updatedAt — i.e. exact ties favour the server.
 //     Otherwise the local copy is kept.
 //   • Push (Apps Script `sync` action): the incoming (local) copy wins only
@@ -2091,7 +2091,7 @@ function saveLocalState() {
 //     favour the server's existing copy.
 //   • Every mutation sets item.updatedAt = now, so the most recently edited
 //     device wins. Items missing updatedAt fall back to epoch (oldest).
-//   • pushToSheets() pulls again afterwards (unless another local edit is
+//   • pushToEndpoint() pulls again afterwards (unless another local edit is
 //     queued) so the merged result is reconciled back onto this device.
 
 function setSyncStatus(status) {
@@ -2114,7 +2114,7 @@ function setSyncStatus(status) {
     el.textContent = s.text;
     el.style.color = s.color;
     el.style.cursor = 'pointer';
-    el.title = 'Click to update Sheets deployment URL';
+    el.title = 'Click to update the sync endpoint URL';
     el.onclick = showEndpointPrompt;
   }
 
@@ -2151,7 +2151,7 @@ function showSyncError(message) {
 
 // Convert flat sheet rows → sectioned state object
 // MERGES with local state using updatedAt timestamps (conflict resolution)
-function sheetsToState(todos) {
+function recordsToState(todos) {
   // Build buckets from the live section list so custom/renamed sections
   // aren't dropped or misfiled into 'one'.
   const s = {};
@@ -2256,8 +2256,8 @@ function stateToFlat() {
   return rows;
 }
 
-// Load from Sheets on startup
-async function loadFromSheets() {
+// Load from the endpoint on startup
+async function loadFromEndpoint() {
   if (!getEndpointUrl()) { setSyncStatus('setup'); return false; }
   setSyncStatus('syncing');
   try {
@@ -2266,7 +2266,7 @@ async function loadFromSheets() {
     // and silently revert local changes (e.g. section moves).
     const sep = getEndpointUrl().includes('?') ? '&' : '?';
     const url = getEndpointUrl() + sep + '_=' + Date.now();
-    console.log('[Sync] Loading from Sheets:', url);
+    console.log('[Sync] Loading from endpoint:', url);
     const resp = await fetch(url, { method: 'GET', cache: 'no-store', headers: authHeaders() });
     if (!resp.ok) {
       console.error('[Sync] HTTP error:', resp.status, resp.statusText);
@@ -2276,7 +2276,7 @@ async function loadFromSheets() {
     console.log('[Sync] Response:', data);
 
     if (data.ok && Array.isArray(data.todos)) {
-      state = sheetsToState(data.todos);
+      state = recordsToState(data.todos);
       saveLocalState();
       render();
       setLastSyncTime();
@@ -2288,7 +2288,7 @@ async function loadFromSheets() {
       // its empty partitioned storage) clobbered the user's real names every
       // poll. Section config is pushed only on explicit rename/reorder/add/
       // delete (saveSectionNames/saveSectionsOrder) and seeded once, guarded, by
-      // loadSectionNamesFromSheet().
+      // loadSectionNamesFromEndpoint().
 
       // Reads are open even when writes are unauthorised — don't paint green and
       // mask a blocked write. Stay in the error state until a write succeeds.
@@ -2297,11 +2297,11 @@ async function loadFromSheets() {
     } else if (data.ok && Array.isArray(data.todos) && data.todos.length === 0) {
       // Sheet is empty — push our local data up
       console.log('[Sync] Sheet is empty, pushing local data');
-      await pushToSheets();
+      await pushToEndpoint();
       return true;
     } else {
       console.error('[Sync] Invalid response:', data);
-      showSyncError('Invalid response from Sheets. Check your deployment URL.');
+      showSyncError('Invalid response from the endpoint. Check your endpoint URL.');
       setSyncStatus('error');
     }
   } catch(e) {
@@ -2314,14 +2314,14 @@ async function loadFromSheets() {
     if (syncRetryCount < MAX_SYNC_RETRIES) {
       syncRetryCount++;
       console.log(`[Sync] Retrying... (${syncRetryCount}/${MAX_SYNC_RETRIES})`);
-      setTimeout(() => loadFromSheets(), 3000);
+      setTimeout(() => loadFromEndpoint(), 3000);
     }
   }
   return false;
 }
 
-// Push changed items to Sheets (incremental — only items modified since last sync)
-async function pushToSheets() {
+// Push changed items to the endpoint (incremental — only items modified since last sync)
+async function pushToEndpoint() {
   if (!getEndpointUrl()) { setSyncStatus('setup'); return; }
   syncPending = false;
   setSyncStatus('syncing');
@@ -2337,7 +2337,7 @@ async function pushToSheets() {
     if (lastSync && todos.length === 0) {
       // Nothing changed locally — skip push, just pull remote changes
       setSyncStatus('synced');
-      if (!syncPending) await loadFromSheets();
+      if (!syncPending) await loadFromEndpoint();
       return;
     }
 
@@ -2353,7 +2353,7 @@ async function pushToSheets() {
         authPromptShown = false;
         writeAuthFailed = false;
         setSyncStatus('synced');
-        if (!syncPending) await loadFromSheets();
+        if (!syncPending) await loadFromEndpoint();
       } else if (res.unauthorized) {
         writeAuthFailed = true;
         setSyncStatus('error');
@@ -2367,8 +2367,8 @@ async function pushToSheets() {
       return;
     }
 
-    console.log('[Sync] Pushing to Sheets:', todos.length, 'of', allTodos.length, 'items');
-    const resp = await postToSheet({ action: 'sync', todos });
+    console.log('[Sync] Pushing to endpoint:', todos.length, 'of', allTodos.length, 'items');
+    const resp = await postToEndpoint({ action: 'sync', todos });
     if (!resp.ok) {
       console.error('[Sync] HTTP error:', resp.status, resp.statusText);
       throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
@@ -2385,12 +2385,12 @@ async function pushToSheets() {
       // concurrent edits from other devices (and any conflict resolution).
       // Skipped if another local change was queued during this push (avoid clobbering).
       if (!syncPending) {
-        await loadFromSheets();
+        await loadFromEndpoint();
       }
     } else if ((data.error || '').toLowerCase().indexOf('unauth') !== -1) {
       // This device is missing/has the wrong AUTH_TOKEN — reads work, writes are
       // rejected. Guide the user to set it instead of a cryptic error. The
-      // local change is kept (sheetsToState now preserves unsynced active items).
+      // local change is kept (recordsToState now preserves unsynced active items).
       console.error('[Sync] Unauthorized — set the sync token on this device');
       writeAuthFailed = true;
       setSyncStatus('error');
@@ -2411,7 +2411,7 @@ async function pushToSheets() {
     if (syncRetryCount < MAX_SYNC_RETRIES) {
       syncRetryCount++;
       console.log(`[Sync] Retrying push... (${syncRetryCount}/${MAX_SYNC_RETRIES})`);
-      setTimeout(() => pushToSheets(), 3000);
+      setTimeout(() => pushToEndpoint(), 3000);
     }
   }
 }
@@ -2445,11 +2445,11 @@ function cleanupCompletedItems() {
     saveLocalState();
     render();
     // Send archived items to Done sheet
-    if (toArchive.length) archiveToDoneSheet(toArchive);
+    if (toArchive.length) archiveToDone(toArchive);
   }
 }
 
-async function archiveToDoneSheet(items, retryCount = 0) {
+async function archiveToDone(items, retryCount = 0) {
   if (!getEndpointUrl()) return;
   try { localStorage.setItem(PENDING_ARCHIVE_KEY, JSON.stringify(items)); } catch(e) {}
   try {
@@ -2459,12 +2459,12 @@ async function archiveToDoneSheet(items, retryCount = 0) {
       dueDate: i.dueDate || '', completedAt: i.completedAt || '',
       notes: i.notes || '', updatedAt: i.updatedAt || ''
     }));
-    await postToSheet({ action: 'archive', items: rows });
+    await postToEndpoint({ action: 'archive', items: rows });
     try { localStorage.removeItem(PENDING_ARCHIVE_KEY); } catch(e) {}
   } catch(e) {
     console.warn(`[Archive] Failed (attempt ${retryCount + 1}):`, e.message);
     if (retryCount < MAX_SYNC_RETRIES) {
-      setTimeout(() => archiveToDoneSheet(items, retryCount + 1), 3000 * (retryCount + 1));
+      setTimeout(() => archiveToDone(items, retryCount + 1), 3000 * (retryCount + 1));
     } else {
       showSyncError('Archive to Done sheet failed — items may be missing from Done. Will retry on next load.');
     }
@@ -2478,7 +2478,7 @@ async function retryPendingArchive() {
     const items = JSON.parse(raw);
     if (Array.isArray(items) && items.length) {
       console.log('[Archive] Retrying', items.length, 'pending items from previous session');
-      await archiveToDoneSheet(items);
+      await archiveToDone(items);
     }
   } catch(e) {}
 }
@@ -2502,7 +2502,7 @@ function saveState() {
   clearTimeout(syncTimer);
   syncPending = true;
   setSyncStatus('syncing');
-  syncTimer = setTimeout(() => pushToSheets(), 800);
+  syncTimer = setTimeout(() => pushToEndpoint(), 800);
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -3782,13 +3782,13 @@ function saveSettings() {
   });
   if (namesChanged) {
     try { localStorage.setItem(SECTION_NAMES_KEY, JSON.stringify(sectionNames)); } catch(e) {}
-    pushSectionsConfigToSheet();
+    pushSectionsConfigToEndpoint();
     render();
   }
 
   closeSettings();
   // Reload to apply new settings
-  loadFromSheets();
+  loadFromEndpoint();
   updateKeyIndicator();
 }
 
@@ -4375,7 +4375,7 @@ function updateKeyIndicator() {
   }
 }
 
-// ── Sheets URL prompt ────────────────────────────────────────────────────────
+// ── Endpoint URL prompt ──────────────────────────────────────────────────────
 
 function showEndpointPrompt() {
   showModal('Connect to sync', 'Enter your sync endpoint to save and sync tasks across your devices.');
@@ -4420,11 +4420,11 @@ function showEndpointPrompt() {
       resetModal();
       console.log('[Setup] Connecting to:', fullUrl);
       syncRetryCount = 0; // Reset retry count
-      loadFromSheets().then(() => {
+      loadFromEndpoint().then(() => {
         cleanupCompletedItems();
         render();
       });
-      loadSectionNamesFromSheet();
+      loadSectionNamesFromEndpoint();
     } else {
       document.getElementById('endpointUrlInput').style.borderColor = '#e53935';
       showSyncError('Please enter a valid https:// endpoint URL');
@@ -4740,7 +4740,7 @@ function updateDarkToggle() {
 
 // ── Section names sync ───────────────────────────────────────────────────────
 
-async function loadSectionNamesFromSheet() {
+async function loadSectionNamesFromEndpoint() {
   if (!getEndpointUrl()) return;
   try {
     // Cache-buster prevents Apps Script/browser from serving a stale response
@@ -4758,10 +4758,10 @@ async function loadSectionNamesFromSheet() {
           // it — keep local and re-push to repair the sheet. Otherwise the
           // sheet (same or newer, e.g. another device) is authoritative.
           const localTs = Number(localStorage.getItem(SECTIONS_TS_KEY) || 0);
-          const sheetTs = Number(cfg.ts || 0);
-          if (localTs && sheetTs < localTs) {
-            console.warn('[Config] local sections newer than sheet (local', localTs, '> sheet', sheetTs, ') — keeping local, re-pushing');
-            pushSectionsConfigToSheet();
+          const remoteTs = Number(cfg.ts || 0);
+          if (localTs && remoteTs < localTs) {
+            console.warn('[Config] local sections newer than sheet (local', localTs, '> sheet', remoteTs, ') — keeping local, re-pushing');
+            pushSectionsConfigToEndpoint();
             render();
             return;
           }
@@ -4777,7 +4777,7 @@ async function loadSectionNamesFromSheet() {
           try { localStorage.setItem(SECTION_NAMES_KEY, JSON.stringify(sectionNames)); } catch(e) {}
           // Adopt the sheet's clock so later loads compare correctly. Legacy
           // sheets with no ts stay at 0 — the next local rename upgrades them.
-          try { localStorage.setItem(SECTIONS_TS_KEY, String(sheetTs)); } catch(e) {}
+          try { localStorage.setItem(SECTIONS_TS_KEY, String(remoteTs)); } catch(e) {}
           render();
           return;
         }
@@ -4795,7 +4795,7 @@ async function loadSectionNamesFromSheet() {
         try { localStorage.setItem(SECTION_NAMES_KEY, JSON.stringify(sectionNames)); } catch(e) {}
         render();
         // Upgrade the server-side config to the new unified shape
-        pushSectionsConfigToSheet();
+        pushSectionsConfigToEndpoint();
         return;
       }
     }
@@ -4805,7 +4805,7 @@ async function loadSectionNamesFromSheet() {
     // layout that simply hasn't been pulled yet.
     if (!isDefaultSectionConfig()) {
       console.log('[Config] No sections config on sheet — seeding from this customised instance');
-      pushSectionsConfigToSheet();
+      pushSectionsConfigToEndpoint();
     } else {
       console.log('[Config] No sections config on sheet and local layout is default — not seeding (avoids clobber)');
     }
@@ -4814,7 +4814,7 @@ async function loadSectionNamesFromSheet() {
   }
 }
 
-async function pushSectionsConfigToSheet() {
+async function pushSectionsConfigToEndpoint() {
   if (!getEndpointUrl()) return;
   // Stamp a fresh clock and persist it locally BEFORE the network call, so
   // even if the push fails the local copy is marked newer than the sheet and
@@ -4824,14 +4824,14 @@ async function pushSectionsConfigToSheet() {
   const payload = { names: sectionNames, order: SECTIONS_ORDER, ts };
   try {
     console.log('[Config] Pushing sections config:', payload);
-    const resp = await postToSheet({ action: 'saveConfig', key: 'sections', value: JSON.stringify(payload) });
+    const resp = await postToEndpoint({ action: 'saveConfig', key: 'sections', value: JSON.stringify(payload) });
     if (!resp.ok) console.warn('[Config] Push HTTP error:', resp.status);
   } catch(e) { console.warn('[Config] Push failed:', e.message); }
 }
 
 // Back-compat alias — older call sites still call this
-async function pushSectionNamesToSheet() {
-  return pushSectionsConfigToSheet();
+async function pushSectionNamesToEndpoint() {
+  return pushSectionsConfigToEndpoint();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -4852,7 +4852,7 @@ render();
 initChat();
 updateKeyIndicator();
 
-// Then pull latest from Google Sheets in background.
+// Then pull latest from the endpoint in background.
 // When embedded in dash dooo, request endpointUrl + authToken from the shell
 // first — localStorage is partitioned so standalone settings are invisible here.
 (async () => {
@@ -4871,45 +4871,45 @@ updateKeyIndicator();
       updateDarkToggle();
     }
   }
-  await loadFromSheets();
+  await loadFromEndpoint();
   await retryPendingArchive();
   cleanupCompletedItems();
   render();
   // Await so the sheet's section layout is fully applied (its internal render)
   // before init finishes — un-awaited it could land after other renders.
-  await loadSectionNamesFromSheet();
+  await loadSectionNamesFromEndpoint();
 })();
 
 // ── Live refresh: keep devices in sync without a hard restart ──────────────────
-// Apps Script can't push, so we pull on focus + poll on an interval.
+// The endpoint has no push channel, so we pull on focus + poll on an interval.
 // Skips the pull if a local change is queued, so we never clobber unsaved edits.
-async function refreshFromSheets() {
+async function refreshFromEndpoint() {
   if (!getEndpointUrl()) return;
   if (syncPending) return;               // a local push is pending — don't overwrite it
   if (document.hidden) return;           // only when the app is actually visible
-  await loadFromSheets();
+  await loadFromEndpoint();
   cleanupCompletedItems();
-  loadSectionNamesFromSheet();
+  loadSectionNamesFromEndpoint();
 }
 
 // Called by sync-bridge.js after the outbox drains (on reconnect / Background
 // Sync) so this device reflects the server's merged result.
 window.reconcileAfterDrain = function() {
-  loadFromSheets().then(() => {
+  loadFromEndpoint().then(() => {
     cleanupCompletedItems();
-    loadSectionNamesFromSheet();
+    loadSectionNamesFromEndpoint();
   }).catch(() => {});
 };
 
 // (#2) Re-sync whenever the tab/PWA regains focus
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) refreshFromSheets();
+  if (!document.hidden) refreshFromEndpoint();
 });
-window.addEventListener('focus', refreshFromSheets);
+window.addEventListener('focus', refreshFromEndpoint);
 
 // (#4) Poll while the app is in the foreground (30s) for snappier cross-device sync
 const SYNC_POLL_MS = 30000;
-setInterval(refreshFromSheets, SYNC_POLL_MS);
+setInterval(refreshFromEndpoint, SYNC_POLL_MS);
 
 // (#5) Manual refresh button — flush any pending local change, then pull
 async function manualRefresh(btn) {
@@ -4918,27 +4918,27 @@ async function manualRefresh(btn) {
   try {
     if (syncPending) {
       clearTimeout(syncTimer);
-      await pushToSheets();   // push local edits first so they aren't lost
+      await pushToEndpoint();   // push local edits first so they aren't lost
     } else {
-      await loadFromSheets(); // otherwise just pull the latest
+      await loadFromEndpoint(); // otherwise just pull the latest
     }
     cleanupCompletedItems();
-    loadSectionNamesFromSheet();
+    loadSectionNamesFromEndpoint();
   } finally {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
   }
 }
 
-// Refresh FAB (Shop-Wise style) — spins while pulling from Sheets
+// Refresh FAB (Shop-Wise style) — spins while pulling from the endpoint
 async function refreshFab(btn) {
   if (!getEndpointUrl()) { showSettings(); return; }
   btn.classList.add('spinning');
   btn.disabled = true;
   try {
-    if (syncPending) { clearTimeout(syncTimer); await pushToSheets(); }
-    else { await loadFromSheets(); }
+    if (syncPending) { clearTimeout(syncTimer); await pushToEndpoint(); }
+    else { await loadFromEndpoint(); }
     cleanupCompletedItems();
-    loadSectionNamesFromSheet();
+    loadSectionNamesFromEndpoint();
   } catch(e) {
     // swallow — setSyncStatus already reflects errors
   } finally {
@@ -4968,7 +4968,7 @@ function scrollToHashTarget(retries) {
   el.classList.add('item-hash-target');
 }
 window.addEventListener('hashchange', () => scrollToHashTarget(0));
-// First attempt fires once after initial render; loadFromSheets() above will
+// First attempt fires once after initial render; loadFromEndpoint() above will
 // trigger a second render, and the retry loop covers the gap.
 scrollToHashTarget();
 
@@ -5018,7 +5018,7 @@ if ('serviceWorker' in navigator) {
 <button class="assistant-fab" id="assistantFab" onclick="openAssistant()" aria-label="Open AI assistant" title="AI Assistant">✦</button>
 
 <!-- Refresh FAB -->
-<button class="reload-fab" id="reloadFab" onclick="refreshFab(this)" aria-label="Refresh from Sheets" title="Refresh from Sheets">↻</button>
+<button class="reload-fab" id="reloadFab" onclick="refreshFab(this)" aria-label="Refresh" title="Refresh">↻</button>
 
 <!-- Footer -->
 <link href="https://fonts.googleapis.com/css?family=Quicksand:400,700" rel="stylesheet" type="text/css">
