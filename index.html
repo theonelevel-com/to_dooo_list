@@ -4548,8 +4548,26 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── PWA Service Worker ───────────────────────────────────────────────────────
+// iOS home-screen PWAs are sticky: without an explicit update check they can
+// sit on a stale build indefinitely (old list, "Synced", no visible way to
+// refresh). So: poll for an updated SW on launch and whenever the app regains
+// focus, and — only for a genuine update (not the first-load claim) — reload
+// once when the new SW takes control so fresh code is applied automatically.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js').catch(e => console.warn('SW:', e.message));
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('service-worker.js').then(reg => {
+    reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(e => console.warn('SW:', e.message));
+
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return; // skip the initial claim on first load
+    reloading = true;
+    location.reload();
+  });
 }
 </script>
 
