@@ -1692,7 +1692,18 @@ function getEndpointBase() {
 // user-entered token any more — auth is dash-injected (in-shell) or the
 // signed-in magic-link session (standalone).
 let _session = null;
-window.__applyDoooSession = function (s) { _session = s || null; };
+window.__applyDoooSession = function (s) {
+  const hadToken = !!(_session && _session.jwt);
+  _session = s || null;
+  // Standalone, the magic-link session resolves in sync-bridge.js (a deferred
+  // module) AFTER the inline boot already fired its first, tokenless pull. Once
+  // a JWT actually arrives, re-pull immediately so the list loads without
+  // waiting for the 30s poll.
+  if (!hadToken && _session && _session.jwt && typeof loadFromEndpoint === 'function') {
+    loadFromEndpoint();
+    if (typeof loadSectionNamesFromEndpoint === 'function') loadSectionNamesFromEndpoint();
+  }
+};
 function getScope() { return _session && _session.household ? _session.household.id : null; }
 
 function getAuthToken() {
@@ -2149,6 +2160,15 @@ async function loadFromEndpoint() {
     }
     const data = await resp.json();
     console.log('[Sync] Response:', data);
+
+    // Unauthenticated requests get the endpoint's public health ping
+    // ({ok:true, ping:true}) rather than a todo list. This happens on the very
+    // first boot pull, before the magic-link session has been applied. It's not
+    // an error — __applyDoooSession re-pulls once the JWT lands — so stay quiet.
+    if (data && data.ping) {
+      setSyncStatus(getAuthToken() ? 'error' : 'syncing');
+      return false;
+    }
 
     if (data.ok && Array.isArray(data.todos)) {
       state = recordsToState(data.todos);
