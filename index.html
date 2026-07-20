@@ -1683,11 +1683,8 @@ function getEndpointBase() {
   return m ? m[1] : DOOO_API;
 }
 
-// ── Auth token (optional) ────────────────────────────────────────────────────
-// Paired with the Apps Script Script Property `AUTH_TOKEN`. When the backend
-// has AUTH_TOKEN set, every POST must include a matching `token` field. Reads
-// (doGet) are unchecked — keeps `?config=sections` lookups public.
-// Stage 4: the first-party magic-link session (set by sync-bridge.js after it
+// ── Auth token ───────────────────────────────────────────────────────────────
+// The first-party magic-link session (set by sync-bridge.js after it
 // resolves the IDB session / landing). Its JWT is the auth token; there is no
 // user-entered token any more — auth is dash-injected (in-shell) or the
 // signed-in magic-link session (standalone).
@@ -1973,7 +1970,7 @@ function saveLocalState() {
 //   • Pull (recordsToState): for a given item id, the REMOTE copy wins when
 //     remote.updatedAt >= local.updatedAt — i.e. exact ties favour the server.
 //     Otherwise the local copy is kept.
-//   • Push (Apps Script `sync` action): the incoming (local) copy wins only
+//   • Push (`sync` action to dooo-api): the incoming (local) copy wins only
 //     when incoming.updatedAt > existing(server).updatedAt — i.e. exact ties
 //     favour the server's existing copy.
 //   • Every mutation sets item.updatedAt = now, so the most recently edited
@@ -2147,7 +2144,7 @@ async function loadFromEndpoint() {
   if (!getEndpointUrl()) { setSyncStatus('setup'); return false; }
   setSyncStatus('syncing');
   try {
-    // Cache-buster: Apps Script GET responses are cacheable, so without this
+    // Cache-buster: dooo-api GET responses are cacheable, so without this
     // a pull right after a push (or a poll) can serve a stale pre-edit snapshot
     // and silently revert local changes (e.g. section moves).
     const sep = getEndpointUrl().includes('?') ? '&' : '?';
@@ -4294,7 +4291,7 @@ function updateDarkToggle() {
 async function loadSectionNamesFromEndpoint() {
   if (!getEndpointUrl()) return;
   try {
-    // Cache-buster prevents Apps Script/browser from serving a stale response
+    // Cache-buster prevents the browser from serving a stale response
     const bust = '&_=' + Date.now();
     console.log('[Config] Loading sections config from sheet');
     const resp = await fetch(getEndpointUrl() + '?config=sections' + bust, { cache: 'no-store', headers: authHeaders() });
