@@ -34,10 +34,11 @@ async function resolveSession() {
   let session = await consumeMagicLinkLanding(apiBase, store);
   if (!session) session = await store.load();
 
-  const legacyToken = (() => { try { return localStorage.getItem("todo_auth_token_v1"); } catch { return ""; } })();
-
-  // Standalone, never signed in, no legacy token → require sign-in.
-  if (!session && !IN_DASH && !legacyToken) {
+  // Standalone, not signed in → require magic-link sign-in. (Legacy paste-tokens
+  // are retired: auth is the session JWT only, so a stale token must NOT skip
+  // sign-in — that would leave getAuthToken() empty and every request 401.)
+  if (!session && !IN_DASH) {
+    try { localStorage.removeItem("todo_auth_token_v1"); } catch {}
     await mountSignIn({ apiBase, redirect: location.origin + "/", sessionStore: store, appName: "to dooo" });
     location.reload(); // reboot cleanly with the stored session
     return null;
